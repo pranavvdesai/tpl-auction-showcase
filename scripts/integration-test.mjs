@@ -49,18 +49,19 @@ await check('anonymous users can read teams, players and auction state', async (
   assert(state.id === 1, 'auction_state row missing')
 })
 
-await check('anonymous users cannot insert bids directly', async () => {
-  const { error } = await anon.from('bids').insert({ player_id: players[0].id, team_id: teams[0].id, amount: 999 })
-  assert(error, 'insert should be rejected')
-})
-
 await check('anonymous users cannot update players directly', async () => {
   const { data, error } = await anon.from('players').update({ status: 'sold' }).eq('id', players[0].id).select()
   assert(error || (data ?? []).length === 0, 'update should be rejected')
 })
 
+await check('anonymous users cannot change the auction state directly', async () => {
+  const { data, error } = await anon.from('auction_state').update({ status: 'live' }).eq('id', 1).select()
+  assert(error || (data ?? []).length === 0, 'update should be rejected')
+})
+
 await check('anonymous users cannot call auction functions', async () => {
   await expectRpcError(anon, 'start_lot', { p_player_id: players[0].id })
+  await expectRpcError(anon, 'sell_player', { p_team_id: teams[0].id, p_amount: 500 })
   await expectRpcError(anon, 'reset_auction', {})
 })
 
@@ -75,6 +76,7 @@ await check('operator can sign in and is recognised as operator', async () => {
 const [teamA, teamB] = teams
 const standing = async (teamId) => ok(anon.from('team_standings').select('*').eq('id', teamId).single())
 const state = async () => ok(anon.from('auction_state').select('*').single())
+const player = async (id) => ok(anon.from('players').select('*').eq('id', id).single())
 
 await check('reset clears the auction', async () => {
   await ok(op.rpc('reset_auction'))
@@ -101,74 +103,70 @@ await new Promise((resolve) => {
   })
 })
 
-await check('starting a lot opens bidding at the base price', async () => {
+await check('selling needs a player on the floor', async () => {
+  await expectRpcError(op, 'sell_player', { p_team_id: teamA.id, p_amount: 500 }, /No player is on the floor/)
+})
+
+await check('starting a player puts them on the floor with no price yet', async () => {
   await ok(op.rpc('start_lot', { p_player_id: marquee.id }))
-  await ok(op.rpc('place_bid', { p_team_id: teamA.id }))
   const s = await state()
-  assert(s.status === 'live', 'lot not live')
-  assert(s.current_bid === marquee.base_price, `first bid should be base price ${marquee.base_price}, got ${s.current_bid}`)
-  assert(s.current_team_id === teamA.id, 'team A should lead')
+  assert(s.status === 'live' && s.current_player_id === marquee.id, 'player not live')
+  assert(s.current_bid === null && s.current_team_id === null, 'live lot should have no amount or team')
 })
 
-await check('a team cannot outbid itself', async () => {
-  await expectRpcError(op, 'place_bid', { p_team_id: teamA.id }, /already holds/)
-})
-
-await check('bids below the next increment are rejected', async () => {
-  await expectRpcError(op, 'place_bid', { p_team_id: teamB.id, p_amount: marquee.base_price + 20 }, /at least/)
-})
-
-await check('another lot cannot start while one is live', async () => {
+await check('another player cannot start while one is on the floor', async () => {
   await expectRpcError(op, 'start_lot', { p_player_id: setA.id }, /Close the current lot/)
 })
 
-await check('undo restores the previous highest bid', async () => {
-  await ok(op.rpc('place_bid', { p_team_id: teamB.id }))
-  let s = await state()
-  assert(s.current_bid === marquee.base_price + 50, `expected ${marquee.base_price + 50}, got ${s.current_bid}`)
-  await ok(op.rpc('undo_bid'))
-  s = await state()
-  assert(s.current_bid === marquee.base_price && s.current_team_id === teamA.id, 'undo did not restore team A bid')
+await check('final amount below the base price is rejected', async () => {
+  await expectRpcError(op, 'sell_player', { p_team_id: teamB.id, p_amount: marquee.base_price - 1 }, /at least the base price/)
 })
 
-await check('selling assigns the player and deducts the purse', async () => {
-  await ok(op.rpc('place_bid', { p_team_id: teamB.id, p_amount: 700 }))
-  await expectRpcError(op, 'mark_unsold', {}, /has bids/)
-  await ok(op.rpc('sell_lot'))
-  const p = await ok(anon.from('players').select('*').eq('id', marquee.id).single())
-  assert(p.status === 'sold' && p.team_id === teamB.id && p.sold_price === 700, 'player not sold correctly')
+await check('final amount above the team purse limit is rejected', async () => {
+  await expectRpcError(op, 'sell_player', { p_team_id: teamB.id, p_amount: 9301 }, /at most 9300/)
+})
+
+await check('selling records the team and final amount, and deducts the purse', async () => {
+  await ok(op.rpc('sell_player', { p_team_id: teamB.id, p_amount: 1250 }))
+  const p = await player(marquee.id)
+  assert(p.status === 'sold' && p.team_id === teamB.id && p.sold_price === 1250, 'player not sold correctly')
+  const s = await state()
+  assert(s.status === 'sold' && s.current_bid === 1250 && s.current_team_id === teamB.id, 'state does not show the sale')
   const b = await standing(teamB.id)
-  assert(b.spent === 700 && b.remaining === 9300 && b.squad_count === 1, 'team B standing wrong')
-  assert(b.max_bid === 9300 - 6 * 100, `team B max bid should be 8700, got ${b.max_bid}`)
+  assert(b.spent === 1250 && b.remaining === 8750 && b.squad_count === 1, 'team B standing wrong')
+  assert(b.max_bid === 8750 - 6 * 100, `team B max should be 8150, got ${b.max_bid}`)
 })
 
-await check('a sold player cannot be auctioned again', async () => {
+await check('a sold player cannot be sold again or re-auctioned', async () => {
+  await expectRpcError(op, 'sell_player', { p_team_id: teamA.id, p_amount: 600 }, /No player is on the floor/)
   await expectRpcError(op, 'start_lot', { p_player_id: marquee.id }, /already sold/)
 })
 
-await check('a player with no bids can be marked unsold and re-auctioned', async () => {
+await check('a player can be marked unsold and re-auctioned later', async () => {
   await ok(op.rpc('start_lot', { p_player_id: setC.id }))
-  await expectRpcError(op, 'sell_lot', {}, /No bids/)
   await ok(op.rpc('mark_unsold'))
-  let p = await ok(anon.from('players').select('status').eq('id', setC.id).single())
+  let p = await player(setC.id)
   assert(p.status === 'unsold', 'player not unsold')
   await ok(op.rpc('start_lot', { p_player_id: setC.id }))
-  p = await ok(anon.from('players').select('status').eq('id', setC.id).single())
+  p = await player(setC.id)
   assert(p.status === 'available', 're-auctioned player should be available')
-  await ok(op.rpc('mark_unsold'))
+  await ok(op.rpc('sell_player', { p_team_id: teamA.id, p_amount: setC.base_price }))
+  p = await player(setC.id)
+  assert(p.status === 'sold' && p.sold_price === setC.base_price, 'sale at base price failed')
 })
 
-await check('bids above the purse reserve limit are rejected', async () => {
+await check('a player can be taken off the screen without a result', async () => {
   await ok(op.rpc('start_lot', { p_player_id: setB.id }))
-  await expectRpcError(op, 'place_bid', { p_team_id: teamB.id, p_amount: 9000 }, /at most 8700/)
-  await ok(op.rpc('place_bid', { p_team_id: teamB.id, p_amount: 8700 }))
-  await ok(op.rpc('undo_bid'))
-  await ok(op.rpc('mark_unsold'))
+  await ok(op.rpc('cancel_lot'))
+  const s = await state()
+  const p = await player(setB.id)
+  assert(s.status === 'idle' && s.current_player_id === null, 'state should be idle')
+  assert(p.status === 'available', 'player should still be available')
 })
 
 await check('reverting a sale returns the player and refunds the team', async () => {
   await ok(op.rpc('revert_sale', { p_player_id: marquee.id }))
-  const p = await ok(anon.from('players').select('*').eq('id', marquee.id).single())
+  const p = await player(marquee.id)
   assert(p.status === 'available' && p.team_id === null, 'player not reverted')
   const b = await standing(teamB.id)
   assert(b.spent === 0 && b.squad_count === 0, 'team B not refunded')
@@ -181,9 +179,9 @@ await check('projection clients receive live updates', async () => {
 
 await check('final reset leaves a clean demo state', async () => {
   await ok(op.rpc('reset_auction'))
-  const sold = await ok(anon.from('players').select('id').neq('status', 'available'))
-  const bids = await ok(anon.from('bids').select('id'))
-  assert(sold.length === 0 && bids.length === 0, 'demo state not clean')
+  const notAvailable = await ok(anon.from('players').select('id').neq('status', 'available'))
+  const s = await state()
+  assert(notAvailable.length === 0 && s.status === 'idle', 'demo state not clean')
 })
 
 await anon.removeChannel(channel)

@@ -42,14 +42,6 @@ export interface Player {
   sold_at: string | null
 }
 
-export interface Bid {
-  id: number
-  player_id: string
-  team_id: string
-  amount: number
-  created_at: string
-}
-
 export interface AuctionState {
   status: LotStatus
   current_player_id: string | null
@@ -63,5 +55,4 @@ export interface AuctionData {
   teams: TeamStanding[]
   players: Player[]
   state: AuctionState
-  bids: Bid[]
 }

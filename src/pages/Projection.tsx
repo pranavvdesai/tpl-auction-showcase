@@ -55,7 +55,7 @@ export default function Projection() {
                 key={t.id}
                 team={t}
                 maxSquad={data.settings.max_squad}
-                leading={data.state.status === 'live' && data.state.current_team_id === t.id}
+                leading={data.state.status === 'sold' && data.state.current_team_id === t.id}
               />
             ))}
           </footer>
@@ -75,8 +75,7 @@ function Stage({ data }: { data: AuctionData }) {
   const player = data.players.find((p) => p.id === state.current_player_id)
   if (!player || state.status === 'idle') return <IdleBoard data={data} />
 
-  const leader = teams.find((t) => t.id === state.current_team_id) ?? null
-  const bids = data.bids.filter((b) => b.player_id === player.id).slice(0, 4)
+  const buyer = state.status === 'sold' ? (teams.find((t) => t.id === state.current_team_id) ?? null) : null
 
   return (
     <div className="proj-lot">
@@ -92,39 +91,42 @@ function Stage({ data }: { data: AuctionData }) {
           {player.bowling_style && <span>{player.bowling_style}</span>}
         </div>
         {player.highlight && <p className="proj-highlight">{player.highlight}</p>}
-        <div className="proj-base">
-          Base price <strong>{pts(player.base_price)}</strong>
-        </div>
-      </div>
-
-      <div className="proj-bid" style={{ ['--team' as string]: leader?.color ?? '#334155' }}>
-        <div className="proj-bid-label">{state.current_bid == null ? 'Awaiting first bid' : 'Current bid'}</div>
-        <div className="proj-bid-amount" key={state.current_bid ?? 0}>
-          {pts(state.current_bid ?? player.base_price)}
-          <span>pts</span>
-        </div>
-        <div className="proj-bid-team">{leader ? leader.name : '—'}</div>
-        {bids.length > 0 && (
-          <ul className="proj-bid-log">
-            {bids.map((b) => {
-              const team = teams.find((t) => t.id === b.team_id)
-              return (
-                <li key={b.id}>
-                  <span className="team-dot" style={{ background: team?.color }} />
-                  {team?.short_code}
-                  <strong>{pts(b.amount)}</strong>
-                </li>
-              )
-            })}
-          </ul>
+        {buyer && (
+          <div className="proj-base">
+            Base price <strong>{pts(player.base_price)}</strong>
+          </div>
         )}
       </div>
 
-      {state.status === 'sold' && leader && (
-        <div className="proj-stamp sold" key={`sold-${state.updated_at}`} style={{ ['--team' as string]: leader.color }}>
+      <div className="proj-bid" style={{ ['--team' as string]: buyer?.color ?? '#b45309' }}>
+        {buyer ? (
+          <>
+            <div className="proj-bid-label">Sold for</div>
+            <div className="proj-bid-amount">
+              {pts(state.current_bid)}
+              <span>pts</span>
+            </div>
+            <div className="proj-bid-team">{buyer.name}</div>
+          </>
+        ) : (
+          <>
+            <div className="proj-bid-label">Base price</div>
+            <div className="proj-bid-amount">
+              {pts(player.base_price)}
+              <span>pts</span>
+            </div>
+            <div className={`proj-bid-team ${state.status === 'live' ? 'bidding' : ''}`}>
+              {state.status === 'live' ? 'Bidding in progress' : '—'}
+            </div>
+          </>
+        )}
+      </div>
+
+      {state.status === 'sold' && buyer && (
+        <div className="proj-stamp sold" key={`sold-${state.updated_at}`} style={{ ['--team' as string]: buyer.color }}>
           <div className="stamp-word">SOLD</div>
           <div className="stamp-detail">
-            to {leader.name} for {pts(state.current_bid)} pts
+            to {buyer.name} for {pts(state.current_bid)} pts
           </div>
         </div>
       )}

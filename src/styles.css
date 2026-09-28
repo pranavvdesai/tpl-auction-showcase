@@ -600,10 +600,10 @@ select:focus {
   cursor: not-allowed;
 }
 
-.bid-btn.leading {
-  opacity: 1;
-  background: color-mix(in srgb, var(--team) 35%, var(--bg-2));
+.bid-btn.selected {
+  background: color-mix(in srgb, var(--team) 40%, var(--bg-2));
   border-color: var(--team);
+  box-shadow: 0 0 0 2px var(--team);
 }
 
 .bid-team {
@@ -629,15 +629,24 @@ select:focus {
   color: var(--muted);
 }
 
-.custom-bid {
+.sale-form {
   display: grid;
-  grid-template-columns: minmax(0, 2fr) minmax(0, 1fr) auto;
-  gap: 8px;
-  align-items: center;
+  gap: 12px;
 }
 
-.custom-bid .form-error {
-  grid-column: 1 / -1;
+.amount-field {
+  display: grid;
+  gap: 6px;
+  font-weight: 600;
+  color: var(--muted);
+}
+
+.amount-field input {
+  font-size: 1.6rem;
+  font-weight: 800;
+  padding: 10px 14px;
+  color: var(--accent-2);
+  max-width: 320px;
 }
 
 .lot-actions {
@@ -645,21 +654,6 @@ select:focus {
   gap: 8px;
   justify-content: flex-end;
   flex-wrap: wrap;
-}
-
-.bid-log h3 {
-  font-size: 0.9rem;
-  color: var(--muted);
-  margin-bottom: 6px;
-}
-
-.bid-log ol {
-  margin: 0;
-  padding-left: 20px;
-  display: grid;
-  gap: 4px;
-  max-height: 180px;
-  overflow-y: auto;
 }
 
 .team-dot {
@@ -1029,21 +1023,19 @@ select:focus {
   margin-top: 1vh;
 }
 
-.proj-bid-log {
-  list-style: none;
-  padding: 0;
-  margin: 2.5vh 0 0;
-  display: grid;
-  gap: 0.6vh;
-  font-size: 2.1vh;
-  color: var(--muted);
+.proj-bid-team.bidding {
+  color: var(--accent-2);
+  animation: breathe 1.6s ease-in-out infinite;
 }
 
-.proj-bid-log li {
-  display: flex;
-  justify-content: center;
-  gap: 1vw;
-  align-items: center;
+@keyframes breathe {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.45;
+  }
 }
 
 .proj-stamp {

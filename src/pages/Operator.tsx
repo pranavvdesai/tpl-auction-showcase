@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState, type FormEvent } from 'react'
 import { Brand, DummyBadge } from '../components/Brand'
 import { CategoryTag } from '../components/CategoryTag'
 import { pts } from '../lib/format'
-import { checkBid, nextBidAmount } from '../lib/rules'
+import { checkSale } from '../lib/rules'
 import { errorMessage, supabase } from '../lib/supabase'
 import type { AuctionData, Category, Player, TeamStanding } from '../lib/types'
 import { useAuction } from '../lib/useAuction'
@@ -205,45 +205,38 @@ function PlayerPool({ data, busy, run }: PanelProps) {
 function LivePanel({ data, busy, run }: PanelProps) {
   const { state, settings, teams } = data
   const player = data.players.find((p) => p.id === state.current_player_id) ?? null
-  const leader = teams.find((t) => t.id === state.current_team_id) ?? null
-  const lotBids = player ? data.bids.filter((b) => b.player_id === player.id) : []
-  const minimum = player ? nextBidAmount(player.base_price, state.current_bid) : 0
-  const [customTeam, setCustomTeam] = useState('')
-  const [customAmount, setCustomAmount] = useState('')
+  const soldTo = teams.find((t) => t.id === state.current_team_id) ?? null
+  const [teamId, setTeamId] = useState('')
+  const [amount, setAmount] = useState('')
 
   useEffect(() => {
-    setCustomAmount('')
-  }, [state.current_player_id, state.current_bid])
+    setTeamId('')
+    setAmount('')
+  }, [state.current_player_id])
 
   if (!player) {
     return (
       <section className="panel live empty-live">
         <h2>No player on the floor</h2>
-        <p className="muted">Use “Start next” or pick a player from the pool to open bidding.</p>
+        <p className="muted">Use “Start next” or pick a player from the pool to put them on the projector.</p>
       </section>
     )
   }
 
   const isLive = state.status === 'live'
-  const customValue = Number(customAmount || minimum)
-  const customTeamRow = teams.find((t) => t.id === customTeam)
-  const customCheck = customTeamRow
-    ? checkBid({
-        teamId: customTeamRow.id,
-        teamName: customTeamRow.name,
-        standing: customTeamRow,
-        amount: customValue,
-        minimum,
-        leadingTeamId: state.current_team_id,
-        settings,
-      })
-    : ({ ok: false, reason: 'Choose a team.' } as const)
+  const team = teams.find((t) => t.id === teamId)
+  const value = Number(amount)
+  const check = !team
+    ? ({ ok: false, reason: 'Pick the winning team.' } as const)
+    : amount.trim() === ''
+      ? ({ ok: false, reason: 'Enter the final amount.' } as const)
+      : checkSale({ teamName: team.name, standing: team, amount: value, basePrice: player.base_price, settings })
 
-  const submitCustom = (e: FormEvent) => {
+  const sell = (e: FormEvent) => {
     e.preventDefault()
-    if (!customTeamRow || !customCheck.ok) return
-    void run(`${customTeamRow.short_code} bids ${pts(customValue)}`, () =>
-      supabase.rpc('place_bid', { p_team_id: customTeamRow.id, p_amount: customValue }),
+    if (!team || !check.ok) return
+    void run(`${player.name} sold to ${team.name} for ${pts(value)}`, () =>
+      supabase.rpc('sell_player', { p_team_id: team.id, p_amount: value }),
     )
   }
 
@@ -263,53 +256,55 @@ function LivePanel({ data, busy, run }: PanelProps) {
           {player.highlight && <div className="muted small">{player.highlight}</div>}
         </div>
         <div className="live-bid">
-          <div className="muted small">{state.current_bid == null ? 'Base price' : 'Current bid'}</div>
-          <div className="live-amount">{pts(state.current_bid ?? player.base_price)}</div>
-          <div className="live-leader" style={{ color: leader?.color }}>
-            {leader ? leader.name : 'No bids yet'}
-          </div>
+          {state.status === 'sold' && soldTo ? (
+            <>
+              <div className="muted small">Sold for</div>
+              <div className="live-amount">{pts(state.current_bid)}</div>
+              <div className="live-leader" style={{ color: soldTo.color }}>
+                {soldTo.name}
+              </div>
+            </>
+          ) : (
+            <>
+              <div className="muted small">Base price</div>
+              <div className="live-amount">{pts(player.base_price)}</div>
+            </>
+          )}
         </div>
       </div>
 
-      {state.status === 'sold' && leader && (
-        <div className="result-banner sold" style={{ borderColor: leader.color }}>
-          SOLD to {leader.name} for {pts(state.current_bid)} points
+      {state.status === 'sold' && soldTo && (
+        <div className="result-banner sold" style={{ borderColor: soldTo.color }}>
+          SOLD to {soldTo.name} for {pts(state.current_bid)} points
         </div>
       )}
       {state.status === 'unsold' && <div className="result-banner unsold">UNSOLD — can be re-auctioned later</div>}
 
       {isLive && (
-        <>
+        <form className="sale-form" onSubmit={sell}>
           <div className="muted small bid-hint">
-            Next valid bid: <strong>{pts(minimum)}</strong> points. Tap a team to record its bid.
+            Bidding is on the floor. When it closes, pick the winning team, enter the final amount and press SOLD.
           </div>
-          <div className="bid-grid">
+          <div className="bid-grid" role="radiogroup" aria-label="Winning team">
             {teams.map((t) => {
-              const check = checkBid({
-                teamId: t.id,
-                teamName: t.name,
-                standing: t,
-                amount: minimum,
-                minimum,
-                leadingTeamId: state.current_team_id,
-                settings,
-              })
+              const full = t.squad_count >= settings.max_squad
+              const cannotAfford = t.max_bid < player.base_price
+              const reason = full ? `${t.name} already has a full squad.` : cannotAfford ? `${t.name} cannot afford the base price.` : ''
               return (
                 <button
                   key={t.id}
-                  className={`bid-btn ${t.id === state.current_team_id ? 'leading' : ''}`}
+                  type="button"
+                  role="radio"
+                  aria-checked={t.id === teamId}
+                  className={`bid-btn ${t.id === teamId ? 'selected' : ''}`}
                   style={{ ['--team' as string]: t.color }}
-                  disabled={busy || !check.ok}
-                  title={check.ok ? `${t.name} bids ${minimum}` : check.reason}
-                  onClick={() =>
-                    void run(`${t.short_code} bids ${pts(minimum)}`, () =>
-                      supabase.rpc('place_bid', { p_team_id: t.id, p_amount: minimum }),
-                    )
-                  }
+                  disabled={busy || full || cannotAfford}
+                  title={reason || `Select ${t.name}`}
+                  onClick={() => setTeamId(t.id)}
                 >
                   <span className="bid-team">{t.short_code}</span>
                   <span className="bid-name">{t.name}</span>
-                  <span className="bid-amount">{t.id === state.current_team_id ? 'Leading' : `+ ${pts(minimum)}`}</span>
+                  <span className="bid-amount">{pts(t.remaining)} left</span>
                   <span className="bid-limit">
                     max {pts(t.max_bid)} · {t.squad_count}/{settings.max_squad}
                   </span>
@@ -318,67 +313,42 @@ function LivePanel({ data, busy, run }: PanelProps) {
             })}
           </div>
 
-          <form className="custom-bid" onSubmit={submitCustom}>
-            <select value={customTeam} onChange={(e) => setCustomTeam(e.target.value)}>
-              <option value="">Custom bid: choose team…</option>
-              {teams.map((t) => (
-                <option key={t.id} value={t.id}>
-                  {t.name} (max {pts(t.max_bid)})
-                </option>
-              ))}
-            </select>
+          <label className="amount-field">
+            <span>Final amount (points)</span>
             <input
               type="number"
-              min={minimum}
-              step={50}
-              placeholder={String(minimum)}
-              value={customAmount}
-              onChange={(e) => setCustomAmount(e.target.value)}
+              inputMode="numeric"
+              min={player.base_price}
+              step={1}
+              placeholder={`at least ${player.base_price}`}
+              value={amount}
+              onChange={(e) => setAmount(e.target.value)}
             />
-            <button className="btn" type="submit" disabled={busy || !customCheck.ok}>
-              Place bid
-            </button>
-            {customTeamRow && !customCheck.ok && <span className="form-error small">{customCheck.reason}</span>}
-          </form>
+          </label>
+          {team && amount.trim() !== '' && !check.ok && <p className="form-error small">{check.reason}</p>}
 
           <div className="lot-actions">
-            <button className="btn" disabled={busy || lotBids.length === 0} onClick={() => void run('Last bid undone', () => supabase.rpc('undo_bid'))}>
-              Undo last bid
+            <button
+              type="button"
+              className="btn ghost"
+              disabled={busy}
+              onClick={() => void run(`${player.name} taken off the screen`, () => supabase.rpc('cancel_lot'))}
+            >
+              Take off screen
             </button>
             <button
+              type="button"
               className="btn danger-outline"
-              disabled={busy || lotBids.length > 0}
+              disabled={busy}
               onClick={() => void run(`${player.name} marked unsold`, () => supabase.rpc('mark_unsold'))}
             >
               Unsold
             </button>
-            <button
-              className="btn sold"
-              disabled={busy || !leader}
-              onClick={() => void run(`${player.name} sold to ${leader?.name}`, () => supabase.rpc('sell_lot'))}
-            >
-              SOLD{leader ? ` to ${leader.short_code} · ${pts(state.current_bid)}` : ''}
+            <button type="submit" className="btn sold" disabled={busy || !check.ok}>
+              SOLD{team && check.ok ? ` to ${team.short_code} · ${pts(value)}` : ''}
             </button>
           </div>
-        </>
-      )}
-
-      {lotBids.length > 0 && (
-        <div className="bid-log">
-          <h3>Bids on this lot</h3>
-          <ol>
-            {lotBids.map((b) => {
-              const team = teams.find((t) => t.id === b.team_id)
-              return (
-                <li key={b.id}>
-                  <span className="team-dot" style={{ background: team?.color }} />
-                  {team?.name ?? 'Unknown team'} <strong>{pts(b.amount)}</strong>
-                  <span className="muted small"> {new Date(b.created_at).toLocaleTimeString()}</span>
-                </li>
-              )
-            })}
-          </ol>
-        </div>
+        </form>
       )}
     </section>
   )
@@ -397,7 +367,7 @@ function ResultsPanel({ data, busy, run }: PanelProps) {
   }
 
   const reset = () => {
-    const answer = window.prompt('This clears every bid and sale for the demo. Type RESET to confirm.')
+    const answer = window.prompt('This clears every sale for the demo. Type RESET to confirm.')
     if (answer !== 'RESET') return
     void run('Auction reset', () => supabase.rpc('reset_auction'))
   }
