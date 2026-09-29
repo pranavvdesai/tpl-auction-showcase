@@ -1,5 +1,6 @@
 import { useEffect, useState, type FormEvent } from 'react'
 import { Brand, DummyBadge } from '../components/Brand'
+import { loginEmail } from '../lib/operatorLogin'
 import { errorMessage, supabase } from '../lib/supabase'
 import { useOperatorSession } from '../lib/useOperatorSession'
 import { Link, navigate } from '../router'
@@ -11,7 +12,7 @@ function nextPath(): string {
 
 export default function Login() {
   const session = useOperatorSession()
-  const [email, setEmail] = useState('')
+  const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -26,8 +27,10 @@ export default function Login() {
     setBusy(true)
     setError(null)
     try {
-      const { error: signInError } = await supabase.auth.signInWithPassword({ email: email.trim(), password })
-      if (signInError) throw signInError
+      const { error: signInError } = await supabase.auth.signInWithPassword({ email: loginEmail(username), password })
+      if (signInError) {
+        throw new Error(/invalid login credentials/i.test(signInError.message) ? 'Wrong username or password.' : signInError.message)
+      }
       const { data: isOperator, error: rpcError } = await supabase.rpc('is_operator')
       if (rpcError) throw rpcError
       if (!isOperator) {
@@ -50,8 +53,16 @@ export default function Login() {
         </div>
         <DummyBadge />
         <label>
-          Email
-          <input type="email" autoComplete="username" value={email} onChange={(e) => setEmail(e.target.value)} required />
+          Username
+          <input
+            type="text"
+            autoComplete="username"
+            autoCapitalize="none"
+            spellCheck={false}
+            value={username}
+            onChange={(e) => setUsername(e.target.value)}
+            required
+          />
         </label>
         <label>
           Password

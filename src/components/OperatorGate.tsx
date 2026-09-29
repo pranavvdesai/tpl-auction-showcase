@@ -1,4 +1,5 @@
 import { useEffect, type ReactNode } from 'react'
+import { displayUsername } from '../lib/operatorLogin'
 import { supabase } from '../lib/supabase'
 import { useOperatorSession } from '../lib/useOperatorSession'
 import { navigate } from '../router'
@@ -20,7 +21,7 @@ export function OperatorGate({ children }: { children: (email: string) => ReactN
       <main className="center-page">
         <div className="card narrow">
           <h1>No operator access</h1>
-          <p>{session.session.user.email} is signed in but is not registered as an auction operator.</p>
+          <p>{displayUsername(session.session.user.email)} is signed in but is not registered as an auction operator.</p>
           <button className="btn" onClick={() => void supabase.auth.signOut()}>
             Sign out
           </button>
@@ -28,5 +29,5 @@ export function OperatorGate({ children }: { children: (email: string) => ReactN
       </main>
     )
   }
-  return <>{children(session.session.user.email ?? 'operator')}</>
+  return <>{children(displayUsername(session.session.user.email))}</>
 }

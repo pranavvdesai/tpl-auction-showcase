@@ -16,8 +16,10 @@ export function requireEnv(name) {
 
 export const SUPABASE_URL = requireEnv('VITE_SUPABASE_URL')
 export const SUPABASE_ANON_KEY = requireEnv('VITE_SUPABASE_ANON_KEY')
-export const OPERATOR_EMAIL = process.env.OPERATOR_EMAIL || 'operator@tpl-demo.in'
-export const OPERATOR_PASSWORD = process.env.OPERATOR_PASSWORD || 'REDACTED'
+// Same mapping as src/lib/operatorLogin.ts: a plain username signs in as <username>@tpl-auction.invalid.
+const operatorUsername = requireEnv('OPERATOR_USERNAME').trim().toLowerCase()
+export const OPERATOR_EMAIL = operatorUsername.includes('@') ? operatorUsername : `${operatorUsername}@tpl-auction.invalid`
+export const OPERATOR_PASSWORD = requireEnv('OPERATOR_PASSWORD')
 
 export function nodeClient(key = SUPABASE_ANON_KEY) {
   return createClient(SUPABASE_URL, key, {
