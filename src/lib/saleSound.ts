@@ -2,7 +2,11 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import type { AuctionState } from './types'
 
 const STORAGE_KEY = 'tpl-sale-sound'
-const CHEER_DELAY_MS = 300
+const MUSIC_SRC = '/sounds/sold-music.mp3'
+/** The track opens with a quiet build; the beat drops at 2.0 s. */
+const MUSIC_START_S = 1.9
+const MUSIC_MAX_MS = 20_000
+const FADE_MS = 1200
 
 type SaleState = Pick<AuctionState, 'status' | 'current_player_id' | 'updated_at'>
 
@@ -17,22 +21,34 @@ export function saleSoundAction(previous: string | null | undefined, next: strin
   return next ? 'play' : 'stop'
 }
 
-type Sounds = { gavel: HTMLAudioElement; cheer: HTMLAudioElement; timer?: number }
+type Music = { audio: HTMLAudioElement; fade?: number; cutoff?: number }
 
-function stopSounds(s: Sounds | null) {
-  if (!s) return
-  window.clearTimeout(s.timer)
-  for (const a of [s.gavel, s.cheer]) {
-    a.pause()
-    a.currentTime = 0
-  }
+function clearTimers(m: Music) {
+  window.clearInterval(m.fade)
+  window.clearTimeout(m.cutoff)
 }
 
-function playSounds(s: Sounds | null) {
-  if (!s) return
-  stopSounds(s)
-  void s.gavel.play().catch(() => {})
-  s.timer = window.setTimeout(() => void s.cheer.play().catch(() => {}), CHEER_DELAY_MS)
+function fadeOut(m: Music | null) {
+  if (!m || m.audio.paused) return
+  clearTimers(m)
+  const { audio } = m
+  const step = audio.volume / (FADE_MS / 50)
+  m.fade = window.setInterval(() => {
+    audio.volume = Math.max(0, audio.volume - step)
+    if (audio.volume === 0) {
+      window.clearInterval(m.fade)
+      audio.pause()
+    }
+  }, 50)
+}
+
+function playMusic(m: Music | null) {
+  if (!m) return
+  clearTimers(m)
+  m.audio.volume = 1
+  m.audio.currentTime = MUSIC_START_S
+  void m.audio.play().catch(() => {})
+  m.cutoff = window.setTimeout(() => fadeOut(m), MUSIC_MAX_MS)
 }
 
 function hasUserActivation(): boolean {
@@ -43,18 +59,18 @@ function hasUserActivation(): boolean {
 export function useSaleSound(state: AuctionState | undefined) {
   const [enabled, setEnabled] = useState(() => localStorage.getItem(STORAGE_KEY) !== 'off')
   const [unlocked, setUnlocked] = useState(hasUserActivation)
-  const sounds = useRef<Sounds | null>(null)
+  const music = useRef<Music | null>(null)
   const lastKey = useRef<string | null | undefined>(undefined)
 
   useEffect(() => {
-    const gavel = new Audio('/sounds/gavel.mp3')
-    const cheer = new Audio('/sounds/cheer.mp3')
-    gavel.preload = cheer.preload = 'auto'
-    cheer.volume = 0.85
-    sounds.current = { gavel, cheer }
+    const audio = new Audio(MUSIC_SRC)
+    audio.preload = 'auto'
+    const m: Music = { audio }
+    music.current = m
     return () => {
-      stopSounds(sounds.current)
-      sounds.current = null
+      clearTimers(m)
+      audio.pause()
+      music.current = null
     }
   }, [])
 
@@ -71,7 +87,7 @@ export function useSaleSound(state: AuctionState | undefined) {
 
   useEffect(() => {
     localStorage.setItem(STORAGE_KEY, enabled ? 'on' : 'off')
-    if (!enabled) stopSounds(sounds.current)
+    if (!enabled) fadeOut(music.current)
   }, [enabled])
 
   const loaded = state !== undefined
@@ -80,8 +96,8 @@ export function useSaleSound(state: AuctionState | undefined) {
     if (!loaded) return
     const action = saleSoundAction(lastKey.current, key)
     lastKey.current = key
-    if (action === 'stop') stopSounds(sounds.current)
-    if (action === 'play' && enabled) playSounds(sounds.current)
+    if (action === 'stop') fadeOut(music.current)
+    if (action === 'play' && enabled) playMusic(music.current)
   }, [loaded, key, enabled])
 
   const toggle = useCallback(() => setEnabled((v) => !v), [])

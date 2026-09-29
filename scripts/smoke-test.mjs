@@ -46,12 +46,10 @@ await check('logo asset is served', async () => {
   if (res.status !== 200 || !res.headers.get('content-type')?.includes('image')) throw new Error(`status ${res.status}`)
 })
 
-for (const file of ['gavel.mp3', 'cheer.mp3']) {
-  await check(`sold sound ${file} is served`, async () => {
-    const res = await fetch(`${base}/sounds/${file}`)
-    if (res.status !== 200 || !res.headers.get('content-type')?.includes('audio')) throw new Error(`status ${res.status}`)
-  })
-}
+await check('sold music is served', async () => {
+  const res = await fetch(`${base}/sounds/sold-music.mp3`)
+  if (res.status !== 200 || !res.headers.get('content-type')?.includes('audio')) throw new Error(`status ${res.status}`)
+})
 
 console.log(failed ? `\n${failed} check(s) failed` : '\nAll smoke checks passed')
 process.exit(failed ? 1 : 0)
