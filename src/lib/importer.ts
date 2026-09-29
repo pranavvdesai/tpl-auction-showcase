@@ -224,21 +224,28 @@ export function dedupeByRoll(players: ParsedPlayer[]): { players: ParsedPlayer[]
 
 const looseKey = (name: string) => name.toLowerCase().replace(/[^a-z0-9.]/g, '')
 
+// Matches by the file name in the form's photo link, or by a file named after the roll number
+// (e.g. "25F101.jpg" or "25F101 - Asha.png") for photos collected outside the form.
 export function matchPhotos(
   wanted: Array<{ roll_no: string; photo_file: string | null }>,
   available: string[],
 ): { matches: Map<string, string>; unusedFiles: string[] } {
   const byExact = new Map<string, string>()
   const byLoose = new Map<string, string>()
+  const byRoll = new Map<string, string>()
   for (const path of available) {
     const base = path.split('/').pop() ?? path
     byExact.set(base, path)
     byLoose.set(looseKey(base), path)
+    for (const token of base.replace(/\.[^.]+$/, '').toUpperCase().split(/[^A-Z0-9]+/)) {
+      if (token && !byRoll.has(token)) byRoll.set(token, path)
+    }
   }
   const matches = new Map<string, string>()
   for (const p of wanted) {
-    if (!p.photo_file) continue
-    const hit = byExact.get(p.photo_file) ?? byLoose.get(looseKey(p.photo_file))
+    const hit =
+      (p.photo_file ? (byExact.get(p.photo_file) ?? byLoose.get(looseKey(p.photo_file))) : undefined) ??
+      byRoll.get(p.roll_no.toUpperCase())
     if (hit) matches.set(p.roll_no, hit)
   }
   const used = new Set(matches.values())

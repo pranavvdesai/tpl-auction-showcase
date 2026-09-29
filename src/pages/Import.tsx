@@ -73,9 +73,9 @@ function Importer({ email }: { email: string }) {
 
   const targets: Target[] = useMemo(
     () =>
-      (sheet?.players ?? data?.players ?? [])
-        .filter((p) => p.roll_no)
-        .map((p) => ({ roll_no: p.roll_no, photo_file: p.photo_file, name: p.name })),
+      sheet
+        ? sheet.players.filter((p) => p.roll_no).map((p) => ({ roll_no: p.roll_no, photo_file: p.photo_file, name: p.name }))
+        : (data?.players ?? []).map((p) => ({ roll_no: p.roll_no, photo_file: null, name: p.name })),
     [sheet, data?.players],
   )
   const importableRolls = new Set(importable.map((p) => p.roll_no))
@@ -215,7 +215,6 @@ function Importer({ email }: { email: string }) {
           batting_style: p.batting_style,
           bowling_style: p.bowling_style,
           is_wicketkeeper: p.is_wicketkeeper,
-          photo_file: p.photo_file,
           photo_url: urls.get(p.roll_no) ?? null,
         }))
         const { data: count, error: rpcError } = await supabase.rpc('import_players', { p_players: payload, p_replace: replace })
@@ -298,13 +297,20 @@ function Importer({ email }: { email: string }) {
                 )}
               </p>
             )}
-            {!excelName && <p className="muted small">Skip this to only add photos to players already in the pool.</p>}
+            {!excelName && (
+              <p className="muted small">
+                Skip this to add photos to players already in the pool; name each photo with the roll number (e.g.
+                25F101.jpg).
+              </p>
+            )}
           </section>
 
           <section className="panel import-step">
             <div className="step-no">2</div>
             <h3>Player photos</h3>
-            <p className="muted small">A .zip of the form’s photo folder, or select the image files. Matched by file name.</p>
+            <p className="muted small">
+              A .zip of the form’s photo folder, or image files. Matched by the file name in the form, or by roll number.
+            </p>
             <label className="btn primary file-btn">
               {photoLabel ? 'Choose different photos' : 'Choose zip or images'}
               <input type="file" accept=".zip,image/*" multiple onChange={loadPhotos} data-testid="photos-input" />

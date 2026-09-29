@@ -49,7 +49,6 @@ const testPlayer = {
   batting_style: 'Right-hand bat',
   bowling_style: 'Right-arm pace',
   is_wicketkeeper: true,
-  photo_file: 'test.jpg',
   photo_url: null,
 }
 

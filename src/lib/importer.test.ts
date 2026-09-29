@@ -157,4 +157,18 @@ describe('matchPhotos', () => {
     expect(matches.get('24B12')).toBe('photo_vik das 2.JPEG')
     expect(unusedFiles).toEqual(['someone_else.jpg'])
   })
+
+  it('falls back to files named after the roll number, without partial matches', () => {
+    const { matches } = matchPhotos(
+      [
+        { roll_no: '25F101', photo_file: null },
+        { roll_no: '25F1', photo_file: null },
+        { roll_no: '24B12', photo_file: 'missing.jpg' },
+      ],
+      ['photos/25f101 - Asha.JPG', '24B12.png'],
+    )
+    expect(matches.get('25F101')).toBe('photos/25f101 - Asha.JPG')
+    expect(matches.has('25F1')).toBe(false)
+    expect(matches.get('24B12')).toBe('24B12.png')
+  })
 })

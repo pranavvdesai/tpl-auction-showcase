@@ -15,10 +15,11 @@ export default function Login() {
   const [password, setPassword] = useState('')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [next] = useState(nextPath)
 
   useEffect(() => {
-    if (session.status === 'operator') navigate(nextPath(), { replace: true })
-  }, [session.status])
+    if (session.status === 'operator') navigate(next, { replace: true })
+  }, [session.status, next])
 
   const submit = async (e: FormEvent) => {
     e.preventDefault()
@@ -33,7 +34,7 @@ export default function Login() {
         await supabase.auth.signOut()
         throw new Error('This account is not registered as an auction operator.')
       }
-      navigate(nextPath(), { replace: true })
+      navigate(next, { replace: true })
     } catch (err) {
       setError(errorMessage(err))
     } finally {

@@ -38,7 +38,6 @@ export interface Player {
   highlight: string | null
   is_wicketkeeper: boolean
   photo_url: string | null
-  photo_file: string | null
   status: PlayerStatus
   team_id: string | null
   sold_price: number | null
