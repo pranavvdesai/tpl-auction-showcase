@@ -2,6 +2,8 @@ export type Category = 'Marquee' | 'A' | 'B' | 'C'
 export type Role = 'Batter' | 'Bowler' | 'All-rounder' | 'Wicketkeeper'
 export type PlayerStatus = 'available' | 'sold' | 'unsold'
 export type LotStatus = 'idle' | 'live' | 'sold' | 'unsold'
+export type AuctionPhase = 'setup' | 'ready' | 'lots' | 'unsold' | 'ended'
+export type Lot = 'Batter' | 'Bowler' | 'All-rounder'
 
 export interface Settings {
   season_name: string
@@ -45,6 +47,8 @@ export interface Player {
   team_id: string | null
   sold_price: number | null
   sold_at: string | null
+  unsold_at: string | null
+  reauctioned: boolean
 }
 
 export interface AuctionState {
@@ -53,6 +57,11 @@ export interface AuctionState {
   current_bid: number | null
   current_team_id: string | null
   updated_at: string
+  phase: AuctionPhase
+  lot_order: Lot[] | null
+  /** 1-based index into lot_order */
+  current_lot: number | null
+  lot_order_drawn_at: string | null
 }
 
 export interface AuctionData {

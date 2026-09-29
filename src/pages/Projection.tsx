@@ -1,9 +1,9 @@
-import { useCallback, useEffect, useState } from 'react'
-import { DrawReveal, useDrawReveal } from '../components/DrawReveal'
+import { useEffect, useState } from 'react'
+import { DrawReveal, LotOrderReveal, useReveals } from '../components/DrawReveal'
 import { PlayerPhoto } from '../components/PlayerPhoto'
-import { pickRandomPlayer } from '../lib/draw'
+import { currentLot, lotLabel } from '../lib/draw'
 import { pts, roleLabel } from '../lib/format'
-import type { AuctionData, Player, TeamStanding } from '../lib/types'
+import type { AuctionData, AuctionState, Player, TeamStanding } from '../lib/types'
 import { useAuction } from '../lib/useAuction'
 
 type View = 'auto' | 'squads'
@@ -13,29 +13,23 @@ export default function Projection() {
   const [view, setView] = useState<View>(() =>
     new URLSearchParams(window.location.search).get('view') === 'squads' ? 'squads' : 'auto',
   )
-  const draw = useDrawReveal(data?.state)
-  const { skip: skipDraw, toggle: toggleDraw, preview } = draw
-  const players = data?.players
-  const previewDraw = useCallback(() => {
-    const pick = players && pickRandomPlayer(players.map((p) => ({ ...p, status: 'available' as const })))
-    if (pick) preview(pick.id)
-  }, [players, preview])
-  const drawPlayer = draw.drawing ? data?.players.find((p) => p.id === draw.drawing?.playerId) : undefined
+  const reveals = useReveals(data?.state)
+  const { skip } = reveals
+  const drawnPlayer = reveals.playerDraw ? data?.players.find((p) => p.id === data.state.current_player_id) : undefined
+  const lotOrder = data?.state.lot_order
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'f' || e.key === 'F') toggleFullscreen()
       if (e.key === 't' || e.key === 'T') setView((v) => (v === 'squads' ? 'auto' : 'squads'))
-      if (e.key === 'd' || e.key === 'D') toggleDraw()
-      if (e.key === 'p' || e.key === 'P') previewDraw()
       if (e.key === ' ') {
         e.preventDefault()
-        skipDraw()
+        skip()
       }
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [toggleDraw, previewDraw, skipDraw])
+  }, [skip])
 
   return (
     <main className="projection" onDoubleClick={toggleFullscreen}>
@@ -46,6 +40,7 @@ export default function Projection() {
           <strong>{data?.settings.season_name ?? 'TPL'} Player Auction</strong>
         </div>
         <div className="proj-status">
+          {data && <span className="proj-phase">{phaseLabel(data.state)}</span>}
           <span className="proj-dummy">Dummy data preview</span>
           <span className={`live-dot ${live ? 'on' : ''}`}>{live ? 'LIVE' : 'Connecting'}</span>
         </div>
@@ -55,8 +50,6 @@ export default function Projection() {
         <button onClick={() => setView(view === 'squads' ? 'auto' : 'squads')}>
           {view === 'squads' ? 'Show live lot (T)' : 'Show squads (T)'}
         </button>
-        <button onClick={toggleDraw}>{draw.enabled ? 'Draw animation on (D)' : 'Draw animation off (D)'}</button>
-        <button onClick={previewDraw}>Preview draw (P)</button>
         <button onClick={toggleFullscreen}>Fullscreen (F)</button>
       </div>
 
@@ -67,8 +60,10 @@ export default function Projection() {
           <section className="proj-stage">
             {view === 'squads' ? (
               <SquadsBoard data={data} />
-            ) : draw.drawing && drawPlayer ? (
-              <DrawReveal key={draw.drawing.key} player={drawPlayer} />
+            ) : reveals.lotOrderDraw && lotOrder ? (
+              <LotOrderReveal key={reveals.lotOrderDraw} order={lotOrder} />
+            ) : reveals.playerDraw && drawnPlayer ? (
+              <DrawReveal key={reveals.playerDraw} player={drawnPlayer} />
             ) : (
               <Stage data={data} />
             )}
@@ -92,6 +87,42 @@ export default function Projection() {
 function toggleFullscreen() {
   if (document.fullscreenElement) void document.exitFullscreen()
   else void document.documentElement.requestFullscreen?.()
+}
+
+function phaseLabel(state: AuctionState): string {
+  const lot = currentLot(state)
+  switch (state.phase) {
+    case 'setup':
+      return 'Starting soon'
+    case 'ready':
+      return 'Lot order drawn'
+    case 'lots':
+      return lot ? `Lot ${state.current_lot} of ${state.lot_order?.length ?? 3} · ${lotLabel(lot)}` : 'Auction live'
+    case 'unsold':
+      return 'Unsold round'
+    case 'ended':
+      return 'Auction complete'
+  }
+}
+
+function LotOrder({ state, compact = false }: { state: AuctionState; compact?: boolean }) {
+  const order = state.lot_order ?? []
+  const running = state.phase === 'lots'
+  const finished = state.phase === 'unsold' || state.phase === 'ended'
+  return (
+    <div className={`lot-order-row ${compact ? 'compact' : ''}`}>
+      {order.map((lot, i) => {
+        const n = i + 1
+        const cls = running && n === state.current_lot ? 'current' : finished || (running && n < (state.current_lot ?? 0)) ? 'done' : ''
+        return (
+          <div key={lot} className={`lot-order-card ${cls}`}>
+            <span>LOT {n}</span>
+            <strong>{lotLabel(lot).toUpperCase()}</strong>
+          </div>
+        )
+      })}
+    </div>
+  )
 }
 
 function Stage({ data }: { data: AuctionData }) {
@@ -130,7 +161,7 @@ function Stage({ data }: { data: AuctionData }) {
       <div className="proj-center">
         <div className="proj-lotno">LOT #{player.lot_no}</div>
         <div className="proj-photo" style={{ ['--team' as string]: buyer?.color ?? '#b45309' }}>
-          <PlayerPhoto name={player.name} src={player.photo_url} className="avatar-proj" />
+          <PlayerPhoto name={player.name} src={player.photo_url} className="avatar-proj" eager />
         </div>
         <h1>{player.name}</h1>
         <div className="proj-role">
@@ -201,10 +232,34 @@ function IdleBoard({ data }: { data: AuctionData }) {
   const top = [...sold].sort((a, b) => (b.sold_price ?? 0) - (a.sold_price ?? 0)).slice(0, 5)
   const remaining = data.players.filter((p) => p.status !== 'sold').length
   const teamsById = new Map(data.teams.map((t) => [t.id, t]))
+  const { state } = data
+  const lot = currentLot(state)
+  const heading =
+    state.phase === 'setup'
+      ? 'The auction is about to begin'
+      : state.phase === 'ready'
+        ? 'Lot order'
+        : state.phase === 'ended'
+          ? 'Auction complete'
+          : state.phase === 'unsold'
+            ? 'Unsold round: next player coming up'
+            : lot
+              ? `${lotLabel(lot)} lot: next player coming up`
+              : 'Next player coming up'
 
   return (
     <div className="proj-idle">
-      <h1>{sold.length === 0 ? 'The auction is about to begin' : 'Next player coming up'}</h1>
+      <h1>{heading}</h1>
+      {state.phase === 'ready' && (
+        <>
+          <LotOrder state={state} />
+          <p className="proj-idle-note">The auction begins shortly</p>
+        </>
+      )}
+      {state.phase === 'lots' && <LotOrder state={state} compact />}
+      {state.phase === 'unsold' && (
+        <p className="proj-idle-note">Unsold players return in the order they went unsold</p>
+      )}
       <div className="proj-stats">
         <Stat label="Players sold" value={String(sold.length)} />
         <Stat label="Points spent" value={pts(totalSpent)} />

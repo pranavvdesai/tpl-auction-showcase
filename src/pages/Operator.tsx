@@ -3,11 +3,11 @@ import { Brand, DummyBadge } from '../components/Brand'
 import { CategoryTag } from '../components/CategoryTag'
 import { OperatorGate } from '../components/OperatorGate'
 import { PlayerPhoto } from '../components/PlayerPhoto'
-import { pickRandomPlayer } from '../lib/draw'
+import { currentLot, inLot, lotLabel, remaining } from '../lib/draw'
 import { pts, roleLabel } from '../lib/format'
 import { checkSale, nextBid, previousBid } from '../lib/rules'
 import { errorMessage, supabase } from '../lib/supabase'
-import type { AuctionData, Player, TeamStanding } from '../lib/types'
+import type { AuctionData, Lot, Player, TeamStanding } from '../lib/types'
 import { useAuction } from '../lib/useAuction'
 import { Link } from '../router'
 
@@ -22,8 +22,6 @@ const GROUPS: Array<{ id: Group; label: string }> = [
   { id: 'Bowler', label: 'Bowlers' },
   { id: 'All-rounder', label: 'All-rounders' },
 ]
-
-const groupLabel = (g: Group) => (GROUPS.find((x) => x.id === g)?.label ?? '').toLowerCase()
 
 const inGroup = (p: Player, g: Group) =>
   g === 'All' || p.role === g || (g === 'Batter' && p.role === 'Wicketkeeper')
@@ -83,8 +81,9 @@ function OperatorDesk({ email }: { email: string }) {
         <div className="center-page muted">Loading auction…</div>
       ) : (
         <div className="operator-grid">
-          <PlayerPool data={data} busy={busy} run={run} />
+          <PlayerPool data={data} />
           <div className="operator-center">
+            <AuctionControl data={data} busy={busy} run={run} />
             <LivePanel data={data} busy={busy} run={run} />
             <ResultsPanel data={data} busy={busy} run={run} />
           </div>
@@ -101,11 +100,126 @@ interface PanelProps {
   run: (successText: string, action: () => RpcResult) => Promise<void>
 }
 
-function PlayerPool({ data, busy, run }: PanelProps) {
+function AuctionControl({ data, busy, run }: PanelProps) {
+  const { state, players, teams, settings } = data
+  const order = state.lot_order ?? []
+  const lot = currentLot(state)
+  const waiting = remaining(
+    players.filter((p) => p.id !== state.current_player_id),
+    lot,
+  )
+  const lotLive = state.status === 'live'
+  const teamsCanBuy = teams.some((t) => t.squad_count < settings.max_squad && t.max_bid >= settings.min_base)
+  const notFresh = players.some((p) => p.status !== 'available')
+  const nextLot = order.find((l) => players.some((p) => p.status === 'available' && p.id !== state.current_player_id && inLot(p.role, l)))
+
+  if (state.phase === 'setup') {
+    return (
+      <section className="panel control">
+        <div className="control-step">Step 1 of 2</div>
+        <h2>Draw the lot order</h2>
+        <p className="muted small">
+          Batsmen, Bowlers and All-rounders are put in a random order. The draw plays live on the projection.
+        </p>
+        {notFresh && (
+          <p className="form-error small">Some players are already sold or unsold. Reset the demo auction first.</p>
+        )}
+        <button
+          className="btn primary block"
+          disabled={busy || notFresh || players.length === 0}
+          onClick={() => void run('Lot order drawn', () => supabase.rpc('draw_lot_order'))}
+        >
+          Draw lot order
+        </button>
+      </section>
+    )
+  }
+
+  if (state.phase === 'ready') {
+    return (
+      <section className="panel control">
+        <div className="control-step">Step 2 of 2</div>
+        <h2>Begin the auction</h2>
+        <LotOrderList order={order} current={null} />
+        <p className="muted small">Players are drawn at random from each lot, one lot after another.</p>
+        <button className="btn primary block" disabled={busy} onClick={() => void run('Auction started', () => supabase.rpc('begin_auction'))}>
+          Begin auction
+        </button>
+      </section>
+    )
+  }
+
+  if (state.phase === 'ended') {
+    return (
+      <section className="panel control">
+        <h2>Auction complete</h2>
+        <p className="muted small">
+          {players.filter((p) => p.status === 'sold').length} players sold. Use “Reset demo auction” to run it again.
+        </p>
+      </section>
+    )
+  }
+
+  let label = 'Draw next player'
+  if (!teamsCanBuy) label = 'Finish auction (no team can buy more)'
+  else if (waiting.lots > 0 && lot && nextLot && nextLot !== lot) label = `Start lot: ${lotLabel(nextLot)}`
+  else if (waiting.lots === 0 && waiting.unsold > 0) label = state.phase === 'unsold' ? 'Next unsold player' : 'Start unsold round'
+  else if (waiting.lots === 0) label = 'Finish auction'
+
+  const endNow = () => {
+    if (!window.confirm('End the auction now? No more players will be drawn.')) return
+    void run('Auction ended', () => supabase.rpc('end_auction'))
+  }
+
+  return (
+    <section className="panel control">
+      {state.phase === 'lots' && lot ? (
+        <>
+          <h2>
+            Lot {state.current_lot} of {order.length}: {lotLabel(lot)}
+          </h2>
+          <LotOrderList order={order} current={state.current_lot} />
+          <p className="muted small">{waiting.inLot} players left in this lot</p>
+        </>
+      ) : (
+        <>
+          <h2>Unsold round</h2>
+          <p className="muted small">
+            Unsold players come back in the order they went unsold. {waiting.unsold} still to go.
+          </p>
+        </>
+      )}
+      <button
+        className="btn primary block"
+        disabled={busy || lotLive}
+        onClick={() => void run(label.startsWith('Finish') ? 'Auction complete' : 'Next player is on the floor', () => supabase.rpc('draw_next_player'))}
+      >
+        {label}
+      </button>
+      {lotLive && <p className="muted small">Mark the current player sold or unsold to continue.</p>}
+      <button className="btn ghost small" disabled={busy || lotLive} onClick={endNow}>
+        End auction now
+      </button>
+    </section>
+  )
+}
+
+function LotOrderList({ order, current }: { order: Lot[]; current: number | null }) {
+  return (
+    <ol className="lot-order-list">
+      {order.map((l, i) => (
+        <li key={l} className={current === i + 1 ? 'current' : current && i + 1 < current ? 'done' : ''}>
+          <span>{i + 1}</span> {lotLabel(l)}
+        </li>
+      ))}
+    </ol>
+  )
+}
+
+function PlayerPool({ data }: { data: AuctionData }) {
   const [query, setQuery] = useState('')
   const [group, setGroup] = useState<Group>('All')
   const [filter, setFilter] = useState<PoolFilter>('open')
-  const lotLive = data.state.status === 'live'
 
   const visible = useMemo(() => {
     const q = query.trim().toLowerCase()
@@ -118,20 +232,11 @@ function PlayerPool({ data, busy, run }: PanelProps) {
     })
   }, [data.players, query, group, filter])
 
-  const groupPlayers = data.players.filter((p) => inGroup(p, group))
-  const nextUp =
-    groupPlayers.find((p) => p.status === 'available') ?? groupPlayers.find((p) => p.status === 'unsold') ?? null
-  const drawRandom = () => {
-    const pick = pickRandomPlayer(groupPlayers)
-    if (pick) void run(`Drew lot ${pick.lot_no}: ${pick.name} is live`, () => supabase.rpc('start_lot', { p_player_id: pick.id }))
-  }
-
   const counts = {
     available: data.players.filter((p) => p.status === 'available').length,
     sold: data.players.filter((p) => p.status === 'sold').length,
     unsold: data.players.filter((p) => p.status === 'unsold').length,
   }
-  const short = data.teams.filter((t) => t.needed > 0)
 
   return (
     <section className="panel pool">
@@ -142,25 +247,7 @@ function PlayerPool({ data, busy, run }: PanelProps) {
         </span>
       </div>
 
-      <button className="btn primary block" disabled={busy || lotLive || !nextUp} onClick={drawRandom}>
-        {nextUp ? `Draw random ${group === 'All' ? 'player' : roleLabel(group).toLowerCase()}` : 'No players left in this group'}
-      </button>
-      <button
-        className="btn ghost block small"
-        disabled={busy || lotLive || !nextUp}
-        onClick={() => nextUp && void run(`Lot ${nextUp.lot_no}: ${nextUp.name} is live`, () => supabase.rpc('start_lot', { p_player_id: nextUp.id }))}
-      >
-        {nextUp ? `or start in order: #${nextUp.lot_no} ${nextUp.name}` : 'No players left'}
-      </button>
-      {group !== 'All' && <p className="muted small">Draws and “start in order” pick from {groupLabel(group)} only.</p>}
-      {counts.available === 0 && counts.unsold > 0 && short.length > 0 && (
-        <div className="draft-note small">
-          <strong>Final unsold draft.</strong> Teams below {data.settings.min_squad} pick unsold players at{' '}
-          {pts(data.settings.min_base)} points each; if two teams want the same player, bidding restarts from{' '}
-          {pts(data.settings.min_base)}.
-          <div className="muted">{short.map((t) => `${t.short_code} needs ${t.needed}`).join(' · ')}</div>
-        </div>
-      )}
+      <p className="muted small">Players are drawn at random by the system. This list is for reference only.</p>
       {data.players.length === 0 && (
         <p className="muted small">
           The pool is empty. <Link to="/import">Import the registration sheet</Link> to add players.
@@ -211,15 +298,11 @@ function PlayerPool({ data, busy, run }: PanelProps) {
             </div>
             {p.status === 'sold' ? (
               <span className="small sold-note">{pts(p.sold_price)}</span>
-            ) : (
-              <button
-                className="btn small"
-                disabled={busy || lotLive}
-                onClick={() => void run(`Lot ${p.lot_no}: ${p.name} is live`, () => supabase.rpc('start_lot', { p_player_id: p.id }))}
-              >
-                {p.status === 'unsold' ? 'Re-auction' : 'Start'}
-              </button>
-            )}
+            ) : p.id === data.state.current_player_id ? (
+              <span className="small muted">On the floor</span>
+            ) : p.status === 'unsold' ? (
+              <span className="small muted">Unsold</span>
+            ) : null}
           </li>
         ))}
         {visible.length === 0 && <li className="muted small empty">No players match these filters.</li>}
@@ -244,7 +327,7 @@ function LivePanel({ data, busy, run }: PanelProps) {
     return (
       <section className="panel live empty-live">
         <h2>No player on the floor</h2>
-        <p className="muted">Use “Start next” or pick a player from the pool to put them on the projector.</p>
+        <p className="muted">Players appear here when they are drawn.</p>
       </section>
     )
   }
@@ -383,14 +466,6 @@ function LivePanel({ data, busy, run }: PanelProps) {
           {amount.trim() !== '' && !check.ok && <p className="form-error small">{check.reason}</p>}
 
           <div className="lot-actions">
-            <button
-              type="button"
-              className="btn ghost"
-              disabled={busy}
-              onClick={() => void run(`${player.name} taken off the screen`, () => supabase.rpc('cancel_lot'))}
-            >
-              Take off screen
-            </button>
             <button
               type="button"
               className="btn danger-outline"

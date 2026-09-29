@@ -10,7 +10,10 @@ async function fetchAuction(): Promise<AuctionData> {
     supabase.from('auction_settings').select('season_name, min_squad, max_squad, min_base, retention_cost').single(),
     supabase.from('team_standings').select('*').order('sort_order'),
     supabase.from('players').select('*').order('lot_no'),
-    supabase.from('auction_state').select('status, current_player_id, current_bid, current_team_id, updated_at').single(),
+    supabase
+      .from('auction_state')
+      .select('status, current_player_id, current_bid, current_team_id, updated_at, phase, lot_order, current_lot, lot_order_drawn_at')
+      .single(),
   ])
   for (const result of [settings, teams, players, state]) {
     if (result.error) throw result.error

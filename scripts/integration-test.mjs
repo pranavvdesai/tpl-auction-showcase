@@ -81,7 +81,9 @@ await check('anonymous users cannot change the auction state directly', async ()
 })
 
 await check('anonymous users cannot call auction or import functions', async () => {
-  await expectRpcError(anon, 'start_lot', { p_player_id: players[0].id })
+  for (const fn of ['draw_lot_order', 'begin_auction', 'draw_next_player', 'end_auction', 'mark_unsold']) {
+    await expectRpcError(anon, fn, {})
+  }
   await expectRpcError(anon, 'sell_player', { p_team_id: teams[0].id, p_amount: 500 })
   await expectRpcError(anon, 'reset_auction', {})
   await expectRpcError(anon, 'import_players', { p_players: [testPlayer], p_replace: false })
@@ -138,10 +140,16 @@ const standing = async (teamId) => ok(anon.from('team_standings').select('*').eq
 const state = async () => ok(anon.from('auction_state').select('*').single())
 const player = async (id) => ok(anon.from('players').select('*').eq('id', id).single())
 
-await check('reset clears the auction', async () => {
+const LOTS = ['Batter', 'Bowler', 'All-rounder']
+const inLot = (role, lot) => role === lot || (lot === 'Batter' && role === 'Wicketkeeper')
+const byId = new Map(players.map((p) => [p.id, p]))
+const lotIndex = (order, id) => order.findIndex((lot) => inLot(byId.get(id).role, lot))
+
+await check('reset clears the auction back to setup', async () => {
   await ok(op.rpc('reset_auction'))
   const s = await state()
   assert(s.status === 'idle' && s.current_player_id === null, 'state not idle after reset')
+  assert(s.phase === 'setup' && s.lot_order === null && s.current_lot === null, 'phase not reset')
 })
 
 await check('retaining a playing owner costs 200 points and fills one squad place', async () => {
@@ -151,8 +159,6 @@ await check('retaining a playing owner costs 200 points and fills one squad plac
   assert(a.spent === 200 && a.remaining === 1000 && a.squad_count === 1 && a.needed === 12, 'retention not applied')
   assert(a.max_bid === floorToBid(1000 - 11 * settings.min_base), `max bid wrong: ${a.max_bid}`)
 })
-
-const [first, second, third] = players
 
 let realtimeEvents = 0
 const channel = anon
@@ -172,15 +178,42 @@ await check('selling needs a player on the floor', async () => {
   await expectRpcError(op, 'sell_player', { p_team_id: teamA.id, p_amount: 500 }, /No player is on the floor/)
 })
 
-await check('starting a player puts them on the floor with no price yet', async () => {
-  await ok(op.rpc('start_lot', { p_player_id: first.id }))
-  const s = await state()
-  assert(s.status === 'live' && s.current_player_id === first.id, 'player not live')
-  assert(s.current_bid === null && s.current_team_id === null, 'live lot should have no amount or team')
+await check('players cannot be drawn before the lot order is drawn and the auction begins', async () => {
+  await expectRpcError(op, 'draw_next_player', {}, /Draw the lot order/)
+  await expectRpcError(op, 'begin_auction', {}, /Draw the lot order/)
+  await expectRpcError(op, 'end_auction', {}, /not running/)
 })
 
-await check('another player cannot start while one is on the floor', async () => {
-  await expectRpcError(op, 'start_lot', { p_player_id: second.id }, /Close the current lot/)
+let order = []
+await check('drawing the lot order shuffles the three lots once', async () => {
+  const s = await ok(op.rpc('draw_lot_order'))
+  order = s.lot_order
+  assert(s.phase === 'ready' && s.lot_order_drawn_at && s.status === 'idle', 'lot order not drawn')
+  assert(order.length === 3 && LOTS.every((l) => order.includes(l)), `bad lot order: ${order}`)
+  await expectRpcError(op, 'draw_lot_order', {}, /already been drawn/)
+  await expectRpcError(op, 'draw_next_player', {}, /begin the auction/)
+})
+
+await check('beginning the auction opens the first lot', async () => {
+  const s = await ok(op.rpc('begin_auction'))
+  assert(s.phase === 'lots' && s.current_lot === 1 && s.status === 'idle', 'auction did not begin')
+  await expectRpcError(op, 'begin_auction', {}, /Draw the lot order/)
+})
+
+let first
+await check('the next player is drawn at random from the first lot that has players', async () => {
+  const s = await ok(op.rpc('draw_next_player'))
+  const expected = order.findIndex((lot) => players.some((p) => inLot(p.role, lot)))
+  assert(s.status === 'live' && s.current_player_id, 'no player on the floor')
+  assert(lotIndex(order, s.current_player_id) === expected, 'player is not from the first lot')
+  assert(s.current_lot === expected + 1, `current lot should be ${expected + 1}, got ${s.current_lot}`)
+  assert(s.current_bid === null && s.current_team_id === null, 'live player should have no amount or team')
+  first = byId.get(s.current_player_id)
+})
+
+await check('another player cannot be drawn while one is on the floor', async () => {
+  await expectRpcError(op, 'draw_next_player', {}, /Close the current player/)
+  await expectRpcError(op, 'end_auction', {}, /Close the current player/)
 })
 
 await check('final amount below the base price is rejected', async () => {
@@ -217,9 +250,8 @@ await check('owner retention cannot change once the auction has started', async 
   await expectRpcError(op, 'set_retained_owner', { p_team_id: teamA.id, p_owner: '' }, /before the auction begins/)
 })
 
-await check('a sold player cannot be sold again, re-auctioned or removed', async () => {
+await check('a sold player cannot be sold again or removed', async () => {
   await expectRpcError(op, 'sell_player', { p_team_id: teamA.id, p_amount: 600 }, /No player is on the floor/)
-  await expectRpcError(op, 'start_lot', { p_player_id: first.id }, /already sold/)
   await expectRpcError(op, 'remove_player', { p_player_id: first.id }, /already sold/)
 })
 
@@ -229,26 +261,65 @@ await check('the player pool cannot be replaced once a player is sold', async ()
   assert(stillThere.length === players.length, 'pool changed after a refused replace')
 })
 
-await check('a player can be marked unsold and re-auctioned later', async () => {
-  await ok(op.rpc('start_lot', { p_player_id: third.id }))
-  await ok(op.rpc('mark_unsold'))
-  let p = await player(third.id)
-  assert(p.status === 'unsold', 'player not unsold')
-  await ok(op.rpc('start_lot', { p_player_id: third.id }))
-  p = await player(third.id)
-  assert(p.status === 'available', 're-auctioned player should be available')
-  await ok(op.rpc('sell_player', { p_team_id: teamA.id, p_amount: third.base_price }))
-  p = await player(third.id)
-  assert(p.status === 'sold' && p.sold_price === third.base_price, 'sale at base price failed')
+// Every remaining lot player goes unsold, so the unsold round follows.
+const unsoldOrder = []
+let firstUnsoldRound = null
+await check('lots are drawn strictly in the drawn order, every player exactly once', async () => {
+  const seen = new Set([first.id])
+  let lastLot = lotIndex(order, first.id)
+  for (let i = 0; i < players.length + 1; i++) {
+    const s = await ok(op.rpc('draw_next_player'))
+    if (s.phase !== 'lots') {
+      firstUnsoldRound = s
+      break
+    }
+    const id = s.current_player_id
+    assert(!seen.has(id), 'a player was drawn twice')
+    seen.add(id)
+    const lot = lotIndex(order, id)
+    assert(lot >= lastLot, 'a later lot was drawn before an earlier lot was finished')
+    assert(s.current_lot === lot + 1, 'current lot does not match the drawn player')
+    lastLot = lot
+    await ok(op.rpc('mark_unsold'))
+    unsoldOrder.push(id)
+  }
+  assert(seen.size === players.length, `expected ${players.length} players drawn, got ${seen.size}`)
+  const p = await player(unsoldOrder.at(-1))
+  assert(p.status === 'unsold' && p.unsold_at && !p.reauctioned, 'unsold player not recorded')
 })
 
-await check('a player can be taken off the screen without a result', async () => {
-  await ok(op.rpc('start_lot', { p_player_id: second.id }))
-  await ok(op.rpc('cancel_lot'))
-  const s = await state()
-  const p = await player(second.id)
-  assert(s.status === 'idle' && s.current_player_id === null, 'state should be idle')
-  assert(p.status === 'available', 'player should still be available')
+await check('the unsold round starts with the first player to go unsold', async () => {
+  const s = firstUnsoldRound
+  assert(s && s.phase === 'unsold' && s.status === 'live', 'unsold round did not start')
+  assert(s.current_player_id === unsoldOrder[0], 'unsold round did not start with the first unsold player')
+  const p = await player(unsoldOrder[0])
+  assert(p.status === 'available' && p.reauctioned, 'player should be back on the floor, marked re-auctioned')
+})
+
+await check('an unsold player can be sold in the unsold round, and a revert puts them back in the queue', async () => {
+  const id = unsoldOrder[0]
+  await ok(op.rpc('sell_player', { p_team_id: teamA.id, p_amount: settings.min_base }))
+  let p = await player(id)
+  assert(p.status === 'sold' && p.sold_price === settings.min_base, 'sale at base price failed')
+  await ok(op.rpc('revert_sale', { p_player_id: id }))
+  p = await player(id)
+  assert(p.status === 'unsold' && p.unsold_at && !p.reauctioned, 'reverted unsold-round sale should rejoin the queue')
+  const s = await ok(op.rpc('draw_next_player'))
+  assert(s.current_player_id === id, 'reverted player should be first in the queue again')
+})
+
+await check('a player unsold again is not brought back a second time', async () => {
+  await ok(op.rpc('mark_unsold'))
+  const s = await ok(op.rpc('draw_next_player'))
+  assert(s.phase === 'unsold' && s.current_player_id === unsoldOrder[1], 'next unsold player should follow')
+  await ok(op.rpc('mark_unsold'))
+})
+
+await check('the operator can end the auction, and nothing can be drawn afterwards', async () => {
+  const s = await ok(op.rpc('end_auction'))
+  assert(s.phase === 'ended' && s.status === 'idle', 'auction not ended')
+  await expectRpcError(op, 'draw_next_player', {}, /has ended/)
+  await expectRpcError(op, 'end_auction', {}, /not running/)
 })
 
 await check('reverting a sale returns the player and refunds the team', async () => {
@@ -268,7 +339,9 @@ await check('final reset leaves a clean demo state', async () => {
   await ok(op.rpc('reset_auction'))
   const notAvailable = await ok(anon.from('players').select('id').neq('status', 'available'))
   const s = await state()
-  assert(notAvailable.length === 0 && s.status === 'idle', 'demo state not clean')
+  assert(notAvailable.length === 0 && s.status === 'idle' && s.phase === 'setup', 'demo state not clean')
+  const flagged = await ok(anon.from('players').select('id').or('reauctioned.eq.true,unsold_at.not.is.null'))
+  assert(flagged.length === 0, 'unsold history not cleared')
   await ok(op.rpc('set_retained_owner', { p_team_id: teamA.id, p_owner: '' }))
   const a = await standing(teamA.id)
   assert(a.retained_owner === null && a.spent === 0, 'test retention not cleared')

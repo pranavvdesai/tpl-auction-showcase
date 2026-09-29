@@ -4,6 +4,7 @@ interface Props {
   name: string
   src: string | null | undefined
   className?: string
+  eager?: boolean
 }
 
 export function initials(name: string): string {
@@ -14,7 +15,7 @@ export function initials(name: string): string {
   return (first + last).toUpperCase()
 }
 
-export function PlayerPhoto({ name, src, className = '' }: Props) {
+export function PlayerPhoto({ name, src, className = '', eager = false }: Props) {
   const [failed, setFailed] = useState(false)
   useEffect(() => setFailed(false), [src])
 
@@ -25,5 +26,13 @@ export function PlayerPhoto({ name, src, className = '' }: Props) {
       </span>
     )
   }
-  return <img className={`avatar ${className}`} src={src} alt={name} loading="lazy" onError={() => setFailed(true)} />
+  return (
+    <img
+      className={`avatar ${className}`}
+      src={src}
+      alt={name}
+      loading={eager ? 'eager' : 'lazy'}
+      onError={() => setFailed(true)}
+    />
+  )
 }
