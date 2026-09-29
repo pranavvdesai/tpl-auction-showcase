@@ -92,7 +92,8 @@ await check('anonymous users cannot call auction or import functions', async () 
 
 await check('settings follow the rulebook', async () => {
   assert(settings.min_squad === 13 && settings.max_squad === 16, 'squad should be 13-16')
-  assert(settings.min_base === 10 && settings.retention_cost === 200, 'base 10 and retention 200 expected')
+  assert(settings.min_base === 30 && settings.retention_cost === 200, 'base 30 and retention 200 expected')
+  assert(players.every((p) => p.base_price === 30), 'every player should start at 30')
   assert(teams.every((t) => t.purse_total === 1200), 'every purse should be 1200')
 })
 
@@ -148,7 +149,7 @@ await check('retaining a playing owner costs 200 points and fills one squad plac
   const a = await standing(teamA.id)
   assert(a.retained_owner === 'Test Owner', 'owner name not stored')
   assert(a.spent === 200 && a.remaining === 1000 && a.squad_count === 1 && a.needed === 12, 'retention not applied')
-  assert(a.max_bid === floorToBid(1000 - 11 * 10), `max bid wrong: ${a.max_bid}`)
+  assert(a.max_bid === floorToBid(1000 - 11 * settings.min_base), `max bid wrong: ${a.max_bid}`)
 })
 
 const [first, second, third] = players
@@ -187,7 +188,7 @@ await check('final amount below the base price is rejected', async () => {
 })
 
 await check('final amounts off the 10/20 bidding ladder are rejected', async () => {
-  for (const amount of [15, 110, 350]) {
+  for (const amount of [45, 110, 350]) {
     await expectRpcError(op, 'sell_player', { p_team_id: teamB.id, p_amount: amount }, /not a valid bid/)
   }
 })
