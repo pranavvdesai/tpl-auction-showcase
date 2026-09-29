@@ -7,7 +7,7 @@ const FALLBACK_POLL_MS = 15000
 
 async function fetchAuction(): Promise<AuctionData> {
   const [settings, teams, players, state] = await Promise.all([
-    supabase.from('auction_settings').select('season_name, min_squad, max_squad, min_base').single(),
+    supabase.from('auction_settings').select('season_name, min_squad, max_squad, min_base, retention_cost').single(),
     supabase.from('team_standings').select('*').order('sort_order'),
     supabase.from('players').select('*').order('lot_no'),
     supabase.from('auction_state').select('status, current_player_id, current_bid, current_team_id, updated_at').single(),

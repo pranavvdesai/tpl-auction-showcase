@@ -27,6 +27,8 @@ async function expectRpcError(client, fn, args, pattern) {
   if (pattern) assert(pattern.test(error.message), `${fn} failed with unexpected message: ${error.message}`)
 }
 
+const floorToBid = (a) => (a < 10 ? 0 : a <= 100 ? Math.floor(a / 10) * 10 : 100 + Math.floor((a - 100) / 20) * 20)
+
 async function ok(promise) {
   const { data, error } = await promise
   if (error) throw new Error(error.message)
@@ -85,6 +87,13 @@ await check('anonymous users cannot call auction or import functions', async () 
   await expectRpcError(anon, 'import_players', { p_players: [testPlayer], p_replace: false })
   await expectRpcError(anon, 'set_player_photos', { p_items: [{ roll_no: TEST_ROLL, photo_url: 'x' }] })
   await expectRpcError(anon, 'remove_player', { p_player_id: players[0].id })
+  await expectRpcError(anon, 'set_retained_owner', { p_team_id: teams[0].id, p_owner: 'x' })
+})
+
+await check('settings follow the rulebook', async () => {
+  assert(settings.min_squad === 13 && settings.max_squad === 16, 'squad should be 13-16')
+  assert(settings.min_base === 10 && settings.retention_cost === 200, 'base 10 and retention 200 expected')
+  assert(teams.every((t) => t.purse_total === 1200), 'every purse should be 1200')
 })
 
 await check('anonymous users cannot upload player photos', async () => {
@@ -134,6 +143,14 @@ await check('reset clears the auction', async () => {
   assert(s.status === 'idle' && s.current_player_id === null, 'state not idle after reset')
 })
 
+await check('retaining a playing owner costs 200 points and fills one squad place', async () => {
+  await ok(op.rpc('set_retained_owner', { p_team_id: teamA.id, p_owner: '  Test Owner ' }))
+  const a = await standing(teamA.id)
+  assert(a.retained_owner === 'Test Owner', 'owner name not stored')
+  assert(a.spent === 200 && a.remaining === 1000 && a.squad_count === 1 && a.needed === 12, 'retention not applied')
+  assert(a.max_bid === floorToBid(1000 - 11 * 10), `max bid wrong: ${a.max_bid}`)
+})
+
 const [first, second, third] = players
 
 let realtimeEvents = 0
@@ -169,15 +186,20 @@ await check('final amount below the base price is rejected', async () => {
   await expectRpcError(op, 'sell_player', { p_team_id: teamB.id, p_amount: first.base_price - 1 }, /at least the base price/)
 })
 
+await check('final amounts off the 10/20 bidding ladder are rejected', async () => {
+  for (const amount of [15, 110, 350]) {
+    await expectRpcError(op, 'sell_player', { p_team_id: teamB.id, p_amount: amount }, /not a valid bid/)
+  }
+})
+
 await check('final amount above the team purse limit is rejected', async () => {
   const b = await standing(teamB.id)
-  await expectRpcError(op, 'sell_player', { p_team_id: teamB.id, p_amount: b.max_bid + 1 }, new RegExp(`at most ${b.max_bid}\\b`))
+  await expectRpcError(op, 'sell_player', { p_team_id: teamB.id, p_amount: b.max_bid + 20 }, new RegExp(`at most ${b.max_bid}\\b`))
 })
 
 let saleAmount = 0
 await check('selling records the team and final amount, and deducts the purse', async () => {
-  const before = await standing(teamB.id)
-  saleAmount = Math.min(before.max_bid, first.base_price + 150)
+  saleAmount = 240
   await ok(op.rpc('sell_player', { p_team_id: teamB.id, p_amount: saleAmount }))
   const p = await player(first.id)
   assert(p.status === 'sold' && p.team_id === teamB.id && p.sold_price === saleAmount, 'player not sold correctly')
@@ -186,8 +208,12 @@ await check('selling records the team and final amount, and deducts the purse', 
   const b = await standing(teamB.id)
   const remaining = b.purse_total - saleAmount
   assert(b.spent === saleAmount && b.remaining === remaining && b.squad_count === 1, 'team B standing wrong')
-  const reserve = Math.max(settings.min_squad - 2, 0) * settings.min_base
-  assert(b.max_bid === remaining - reserve, `team B max should be ${remaining - reserve}, got ${b.max_bid}`)
+  const expected = floorToBid(remaining - Math.max(settings.min_squad - 2, 0) * settings.min_base)
+  assert(b.max_bid === expected, `team B max should be ${expected}, got ${b.max_bid}`)
+})
+
+await check('owner retention cannot change once the auction has started', async () => {
+  await expectRpcError(op, 'set_retained_owner', { p_team_id: teamA.id, p_owner: '' }, /before the auction begins/)
 })
 
 await check('a sold player cannot be sold again, re-auctioned or removed', async () => {
@@ -242,6 +268,9 @@ await check('final reset leaves a clean demo state', async () => {
   const notAvailable = await ok(anon.from('players').select('id').neq('status', 'available'))
   const s = await state()
   assert(notAvailable.length === 0 && s.status === 'idle', 'demo state not clean')
+  await ok(op.rpc('set_retained_owner', { p_team_id: teamA.id, p_owner: '' }))
+  const a = await standing(teamA.id)
+  assert(a.retained_owner === null && a.spent === 0, 'test retention not cleared')
 })
 
 await anon.removeChannel(channel)

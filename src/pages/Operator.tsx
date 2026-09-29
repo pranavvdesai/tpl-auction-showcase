@@ -4,7 +4,7 @@ import { CategoryTag } from '../components/CategoryTag'
 import { OperatorGate } from '../components/OperatorGate'
 import { PlayerPhoto } from '../components/PlayerPhoto'
 import { pts } from '../lib/format'
-import { checkSale } from '../lib/rules'
+import { checkSale, nextBid, previousBid } from '../lib/rules'
 import { errorMessage, supabase } from '../lib/supabase'
 import type { AuctionData, Player, TeamStanding } from '../lib/types'
 import { useAuction } from '../lib/useAuction'
@@ -17,7 +17,7 @@ type Group = 'All' | 'Batter' | 'Bowler' | 'All-rounder' | 'WK'
 
 const GROUPS: Array<{ id: Group; label: string }> = [
   { id: 'All', label: 'All roles' },
-  { id: 'Batter', label: 'Batters' },
+  { id: 'Batter', label: 'Batsmen' },
   { id: 'Bowler', label: 'Bowlers' },
   { id: 'All-rounder', label: 'All-rounders' },
   { id: 'WK', label: 'Wicketkeepers' },
@@ -127,6 +127,7 @@ function PlayerPool({ data, busy, run }: PanelProps) {
     sold: data.players.filter((p) => p.status === 'sold').length,
     unsold: data.players.filter((p) => p.status === 'unsold').length,
   }
+  const short = data.teams.filter((t) => t.needed > 0)
 
   return (
     <section className="panel pool">
@@ -145,6 +146,14 @@ function PlayerPool({ data, busy, run }: PanelProps) {
         {nextUp ? `Start next: #${nextUp.lot_no} ${nextUp.name}` : 'No players left in this group'}
       </button>
       {group !== 'All' && <p className="muted small">“Start next” picks from {groupLabel(group)} only.</p>}
+      {counts.available === 0 && counts.unsold > 0 && short.length > 0 && (
+        <div className="draft-note small">
+          <strong>Final unsold draft.</strong> Teams below {data.settings.min_squad} pick unsold players at{' '}
+          {pts(data.settings.min_base)} points each; if two teams want the same player, bidding restarts from{' '}
+          {pts(data.settings.min_base)}.
+          <div className="muted">{short.map((t) => `${t.short_code} needs ${t.needed}`).join(' · ')}</div>
+        </div>
+      )}
       {data.players.length === 0 && (
         <p className="muted small">
           The pool is empty. <Link to="/import">Import the registration sheet</Link> to add players.
@@ -236,15 +245,21 @@ function LivePanel({ data, busy, run }: PanelProps) {
   const isLive = state.status === 'live'
   const team = teams.find((t) => t.id === teamId)
   const value = Number(amount)
-  const check = !team
-    ? ({ ok: false, reason: 'Pick the winning team.' } as const)
-    : amount.trim() === ''
+  const check =
+    amount.trim() === ''
       ? ({ ok: false, reason: 'Enter the final amount.' } as const)
-      : checkSale({ teamName: team.name, standing: team, amount: value, basePrice: player.base_price, settings })
+      : checkSale({
+          teamName: team?.name ?? '',
+          standing: team ?? { squad_count: 0, max_bid: Number.MAX_SAFE_INTEGER },
+          amount: value,
+          basePrice: player.base_price,
+          settings,
+        })
+  const canSell = !!team && check.ok
 
   const sell = (e: FormEvent) => {
     e.preventDefault()
-    if (!team || !check.ok) return
+    if (!team || !canSell) return
     void run(`${player.name} sold to ${team.name} for ${pts(value)}`, () =>
       supabase.rpc('sell_player', { p_team_id: team.id, p_amount: value }),
     )
@@ -328,17 +343,38 @@ function LivePanel({ data, busy, run }: PanelProps) {
 
           <label className="amount-field">
             <span>Final amount (points)</span>
-            <input
-              type="number"
-              inputMode="numeric"
-              min={player.base_price}
-              step={1}
-              placeholder={`at least ${player.base_price}`}
-              value={amount}
-              onChange={(e) => setAmount(e.target.value)}
-            />
+            <div className="amount-stepper">
+              <button
+                type="button"
+                className="btn"
+                aria-label="Previous valid bid"
+                disabled={busy || amount.trim() === '' || value <= player.base_price}
+                onClick={() => setAmount(String(Math.max(player.base_price, previousBid(value))))}
+              >
+                −
+              </button>
+              <input
+                type="number"
+                inputMode="numeric"
+                min={player.base_price}
+                step={1}
+                placeholder={`at least ${player.base_price}`}
+                value={amount}
+                onChange={(e) => setAmount(e.target.value)}
+              />
+              <button
+                type="button"
+                className="btn"
+                aria-label="Next valid bid"
+                disabled={busy}
+                onClick={() => setAmount(String(amount.trim() === '' ? player.base_price : nextBid(value)))}
+              >
+                +
+              </button>
+            </div>
+            <span className="muted small">Bids rise in 10s up to 100, then in 20s (120, 140, 160 …).</span>
           </label>
-          {team && amount.trim() !== '' && !check.ok && <p className="form-error small">{check.reason}</p>}
+          {amount.trim() !== '' && !check.ok && <p className="form-error small">{check.reason}</p>}
 
           <div className="lot-actions">
             <button
@@ -357,8 +393,8 @@ function LivePanel({ data, busy, run }: PanelProps) {
             >
               Unsold
             </button>
-            <button type="submit" className="btn sold" disabled={busy || !check.ok}>
-              SOLD{team && check.ok ? ` to ${team.short_code} · ${pts(value)}` : ''}
+            <button type="submit" className="btn sold" disabled={busy || !canSell}>
+              SOLD{team && canSell ? ` to ${team.short_code} · ${pts(value)}` : ''}
             </button>
           </div>
         </form>
@@ -437,7 +473,7 @@ function ResultsPanel({ data, busy, run }: PanelProps) {
   )
 }
 
-function TeamsPanel({ data }: PanelProps) {
+function TeamsPanel({ data, busy, run }: PanelProps) {
   const [open, setOpen] = useState<string | null>(null)
   return (
     <section className="panel teams">
@@ -447,15 +483,25 @@ function TeamsPanel({ data }: PanelProps) {
           squad {data.settings.min_squad}–{data.settings.max_squad}
         </span>
       </div>
+      <p className="muted small">
+        Owner retention costs {pts(data.settings.retention_cost)} and counts as one squad player. Declare it before the
+        first sale.
+      </p>
       <ul className="team-list">
         {data.teams.map((t) => (
           <TeamRow
             key={t.id}
             team={t}
             squad={data.players.filter((p) => p.team_id === t.id)}
-            maxSquad={data.settings.max_squad}
+            settings={data.settings}
+            retentionLocked={busy || data.players.some((p) => p.status === 'sold')}
             open={open === t.id}
             onToggle={() => setOpen(open === t.id ? null : t.id)}
+            onRetain={(owner) =>
+              void run(owner ? `${t.name} retained ${owner}` : `${t.name} retention removed`, () =>
+                supabase.rpc('set_retained_owner', { p_team_id: t.id, p_owner: owner }),
+              )
+            }
           />
         ))}
       </ul>
@@ -463,9 +509,21 @@ function TeamsPanel({ data }: PanelProps) {
   )
 }
 
-function TeamRow(props: { team: TeamStanding; squad: Player[]; maxSquad: number; open: boolean; onToggle: () => void }) {
-  const { team, squad, maxSquad, open, onToggle } = props
+function TeamRow(props: {
+  team: TeamStanding
+  squad: Player[]
+  settings: AuctionData['settings']
+  retentionLocked: boolean
+  open: boolean
+  onToggle: () => void
+  onRetain: (owner: string) => void
+}) {
+  const { team, squad, settings, retentionLocked, open, onToggle, onRetain } = props
   const usedPct = Math.min(100, (team.spent / team.purse_total) * 100)
+  const retain = () => {
+    const owner = window.prompt(`Name of the playing owner ${team.name} is retaining for ${settings.retention_cost} points:`)
+    if (owner?.trim()) onRetain(owner.trim())
+  }
   return (
     <li className="team-row" style={{ ['--team' as string]: team.color }}>
       <button className="team-row-head" onClick={onToggle} aria-expanded={open}>
@@ -473,7 +531,8 @@ function TeamRow(props: { team: TeamStanding; squad: Player[]; maxSquad: number;
         <span className="team-row-name">
           {team.name}
           <span className="muted small">
-            {team.squad_count}/{maxSquad} players · max bid {pts(team.max_bid)}
+            {team.squad_count}/{settings.max_squad} players
+            {team.needed > 0 ? ` · needs ${team.needed}` : ''} · max bid {pts(team.max_bid)}
           </span>
         </span>
         <span className="team-row-purse">
@@ -486,7 +545,23 @@ function TeamRow(props: { team: TeamStanding; squad: Player[]; maxSquad: number;
       </div>
       {open && (
         <ul className="squad">
-          {team.captain && <li className="muted small">Captain (not auctioned): {team.captain}</li>}
+          <li className="retention">
+            {team.retained_owner ? (
+              <>
+                <span>
+                  Retained owner: <strong>{team.retained_owner}</strong>
+                </span>
+                <span className="muted small">{pts(settings.retention_cost)}</span>
+                <button className="btn small ghost" disabled={retentionLocked} onClick={() => onRetain('')}>
+                  Remove
+                </button>
+              </>
+            ) : (
+              <button className="btn small" disabled={retentionLocked} onClick={retain}>
+                Retain playing owner ({pts(settings.retention_cost)})
+              </button>
+            )}
+          </li>
           {squad.length === 0 && <li className="muted small">No players bought yet.</li>}
           {squad.map((p) => (
             <li key={p.id}>

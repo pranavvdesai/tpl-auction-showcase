@@ -45,18 +45,25 @@ export default function Home() {
       </section>
 
       <section className="card rules">
-        <h2>Prototype auction rules</h2>
+        <h2>Auction rules (TPL rulebook)</h2>
         <ul>
-          <li>8 franchises, each with a purse of 10,000 points.</li>
-          <li>Squad size of 8 to 10 players bought at auction.</li>
-          <li>Base prices: Marquee 500, Set A 300, Set B 200, Set C 100 points.</li>
-          <li>Bidding is conducted verbally in the room; the operator records only the winning team and final amount.</li>
-          <li>The final amount must be at least the player’s base price.</li>
+          <li>Each team starts with 1,200 auction points.</li>
           <li>
-            A team must always keep enough purse to fill its minimum squad at 100 points per remaining player, so the
-            maximum shown for each team already accounts for that reserve.
+            A team may retain one playing owner for 200 points, declared before the auction; the owner counts as one
+            squad player.
           </li>
-          <li>Players nobody bids for can be marked unsold and brought back later.</li>
+          <li>Squads of 13 to 16 players. Teams cannot buy after reaching 16.</li>
+          <li>Every player starts at a base price of 10 points.</li>
+          <li>Bids rise in steps of 10 up to 100, then in steps of 20 (120, 140, 160 …).</li>
+          <li>Bidding is conducted verbally in the room; the operator records only the winning team and final amount.</li>
+          <li>
+            A team must always keep 10 points for every player it still needs to reach 13, so the maximum shown for each
+            team already accounts for that reserve.
+          </li>
+          <li>
+            Players with no bid go to the Final Unsold Player List. After the regular auction, teams below 13 pick from
+            it at 10 points each; if two teams want the same player, bidding restarts from 10.
+          </li>
         </ul>
       </section>
     </main>

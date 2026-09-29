@@ -8,6 +8,7 @@ export interface Settings {
   min_squad: number
   max_squad: number
   min_base: number
+  retention_cost: number
 }
 
 export interface TeamStanding {
@@ -16,12 +17,14 @@ export interface TeamStanding {
   short_code: string
   color: string
   captain: string | null
+  retained_owner: string | null
   sort_order: number
   purse_total: number
   spent: number
   remaining: number
   squad_count: number
   max_bid: number
+  needed: number
 }
 
 export interface Player {

@@ -206,6 +206,12 @@ function SquadsBoard({ data }: { data: AuctionData }) {
           <div key={t.id} className="proj-squad" style={{ ['--team' as string]: t.color }}>
             <h3>{t.name}</h3>
             <ul>
+              {t.retained_owner && (
+                <li className="proj-owner">
+                  <span>{t.retained_owner} (owner)</span>
+                  <strong>{pts(data.settings.retention_cost)}</strong>
+                </li>
+              )}
               {squad.map((p) => (
                 <li key={p.id}>
                   <span className="name-with-avatar">
@@ -215,7 +221,7 @@ function SquadsBoard({ data }: { data: AuctionData }) {
                   <strong>{pts(p.sold_price)}</strong>
                 </li>
               ))}
-              {squad.length === 0 && <li className="muted">No players yet</li>}
+              {squad.length === 0 && !t.retained_owner && <li className="muted">No players yet</li>}
             </ul>
           </div>
         )

@@ -109,3 +109,7 @@ insert into public.players (lot_no, name, roll_no, batch, role, category, base_p
   (95, 'Tanvi Das', '26F195', 'PGDM 2026-28', 'Batter', 'C', 100, 'Left-hand bat', null, 'Dummy stat: 52 runs @ SR 138 in last season'),
   (96, 'Tejas Sharma', '26F196', 'PGDM 2026-28', 'All-rounder', 'C', 100, 'Left-hand bat', 'Left-arm orthodox', 'Dummy stat: 53 runs and 4 wickets')
 on conflict (lot_no) do nothing;
+
+-- Rulebook: 1,200-point purse, no captains outside the auction (owners are retained instead), base price 10.
+update public.teams set purse_total = 1200, captain = null where true;
+update public.players set base_price = 10, category = null where true;

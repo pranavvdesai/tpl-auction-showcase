@@ -385,7 +385,21 @@ select:focus {
   position: sticky;
   top: 80px;
   max-height: calc(100vh - 96px);
-  grid-template-rows: auto auto auto auto auto minmax(0, 1fr);
+  display: flex;
+  flex-direction: column;
+}
+
+.pool .pool-list {
+  flex: 1;
+  min-height: 0;
+}
+
+.draft-note {
+  border: 1px solid var(--accent);
+  border-radius: 8px;
+  padding: 8px 10px;
+  display: grid;
+  gap: 4px;
 }
 
 .chips {
@@ -646,7 +660,30 @@ select:focus {
   font-weight: 800;
   padding: 10px 14px;
   color: var(--accent-2);
-  max-width: 320px;
+  max-width: 240px;
+  min-width: 0;
+}
+
+.amount-stepper {
+  display: flex;
+  gap: 6px;
+  align-items: stretch;
+}
+
+.amount-stepper .btn {
+  font-size: 1.4rem;
+  min-width: 48px;
+}
+
+.squad li.retention {
+  align-items: center;
+  flex-wrap: wrap;
+  padding-bottom: 6px;
+  border-bottom: 1px dashed var(--line);
+}
+
+.squad li.retention .btn {
+  margin-left: auto;
 }
 
 .lot-actions {
@@ -1195,6 +1232,10 @@ select:focus {
   display: flex;
   justify-content: space-between;
   gap: 0.5vw;
+}
+
+.proj-squad li.proj-owner {
+  color: var(--accent);
 }
 
 .proj-teams {
