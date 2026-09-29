@@ -18,7 +18,7 @@ async function check(name, fn) {
 }
 
 let html = ''
-for (const route of ['/', '/login', '/operator', '/projection']) {
+for (const route of ['/', '/login', '/operator', '/import', '/projection']) {
   await check(`GET ${route} serves the app shell`, async () => {
     const res = await fetch(base + route, { redirect: 'follow' })
     if (res.status !== 200) throw new Error(`status ${res.status}`)
@@ -35,6 +35,10 @@ await check('JavaScript bundle loads and contains the Supabase project URL', asy
   if (res.status !== 200) throw new Error(`bundle status ${res.status}`)
   const js = await res.text()
   if (!/https:\/\/[a-z0-9]{20}\.supabase\.co/.test(js)) throw new Error('Supabase URL missing from bundle (env vars not set at build time)')
+  const importChunk = js.match(/Import-[\w-]+\.js/)?.[0]
+  if (!importChunk) throw new Error('import page chunk is not referenced by the bundle')
+  const chunk = await fetch(new URL(importChunk, new URL(src, base)))
+  if (chunk.status !== 200) throw new Error(`import chunk status ${chunk.status}`)
 })
 
 await check('logo asset is served', async () => {
