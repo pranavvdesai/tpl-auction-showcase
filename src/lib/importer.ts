@@ -145,6 +145,14 @@ export function photoFileFromLink(value: Cell): string | null {
   }
 }
 
+// The roll number starts with the intake year: 2025 intake is MBA 2, 2024 intake is MBA 1.
+// Keep in sync with supabase/migrations/20260929160000_mba_year.sql.
+const MBA_BY_INTAKE: Record<string, string> = { '25': 'MBA 2', '24': 'MBA 1' }
+
+export function mbaYear(rollNo: string): string | null {
+  return MBA_BY_INTAKE[rollNo.slice(0, 2)] ?? null
+}
+
 const IMAGE_EXT = /\.(jpe?g|png|webp|gif|bmp)$/i
 const ROLL_PATTERN = /^\d{2}[A-Z]{1,3}\d{1,4}$/
 
@@ -167,13 +175,11 @@ export function normalizeRow(cells: Cell[], map: ColumnMap, rowNumber: number): 
   else if (/\.hei[cf]$/i.test(photo_file)) issues.push({ level: 'warning', text: 'Photo is an iPhone HEIC file; ask for a JPG' })
   else if (!IMAGE_EXT.test(photo_file)) issues.push({ level: 'warning', text: 'Uploaded photo is not an image file' })
 
-  const year = roll_no.match(/^(\d{2})[A-Z]/)?.[1]
-
   return {
     rowNumber,
     name,
     roll_no,
-    batch: year ? `20${year} intake` : null,
+    batch: mbaYear(roll_no),
     role,
     batting_style: hand(get('batting')) ? `${hand(get('batting'))}-hand bat` : null,
     bowling_style: mapBowling(get('bowling_hand'), get('bowling_type')),

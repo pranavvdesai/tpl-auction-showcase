@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react'
-import { CategoryTag } from '../components/CategoryTag'
 import { PlayerPhoto } from '../components/PlayerPhoto'
-import { pts } from '../lib/format'
+import { pts, roleLabel } from '../lib/format'
 import type { AuctionData, Player, TeamStanding } from '../lib/types'
 import { useAuction } from '../lib/useAuction'
 
@@ -80,31 +79,6 @@ function Stage({ data }: { data: AuctionData }) {
 
   return (
     <div className="proj-lot">
-      <div className="proj-photo" style={{ ['--team' as string]: buyer?.color ?? '#b45309' }}>
-        <PlayerPhoto name={player.name} src={player.photo_url} className="avatar-proj" />
-      </div>
-      <div className="proj-player">
-        <div className="proj-lotno">
-          LOT #{player.lot_no} <CategoryTag category={player.category} />
-        </div>
-        <h1>{player.name}</h1>
-        <div className="proj-role">
-          {player.role}
-          {player.is_wicketkeeper && player.role !== 'Wicketkeeper' && <span className="proj-wk">WK</span>}
-        </div>
-        <div className="proj-details">
-          {player.batch && <span>{player.batch}</span>}
-          {player.batting_style && <span>{player.batting_style}</span>}
-          {player.bowling_style && <span>{player.bowling_style}</span>}
-        </div>
-        {player.highlight && <p className="proj-highlight">{player.highlight}</p>}
-        {buyer && (
-          <div className="proj-base">
-            Base price <strong>{pts(player.base_price)}</strong>
-          </div>
-        )}
-      </div>
-
       <div className="proj-bid" style={{ ['--team' as string]: buyer?.color ?? '#b45309' }}>
         {buyer ? (
           <>
@@ -123,26 +97,77 @@ function Stage({ data }: { data: AuctionData }) {
               <span>pts</span>
             </div>
             <div className={`proj-bid-team ${state.status === 'live' ? 'bidding' : ''}`}>
-              {state.status === 'live' ? 'Bidding in progress' : '—'}
+              {state.status === 'live' ? 'Bidding in progress' : state.status === 'unsold' ? 'Unsold' : '—'}
             </div>
           </>
         )}
       </div>
 
-      {state.status === 'sold' && buyer && (
-        <div className="proj-stamp sold" key={`sold-${state.updated_at}`} style={{ ['--team' as string]: buyer.color }}>
-          <div className="stamp-word">SOLD</div>
-          <div className="stamp-detail">
-            to {buyer.name} for {pts(state.current_bid)} pts
+      <div className="proj-center">
+        <div className="proj-lotno">LOT #{player.lot_no}</div>
+        <div className="proj-photo" style={{ ['--team' as string]: buyer?.color ?? '#b45309' }}>
+          <PlayerPhoto name={player.name} src={player.photo_url} className="avatar-proj" />
+        </div>
+        <h1>{player.name}</h1>
+        <div className="proj-role">
+          {roleLabel(player.role)}
+          {player.batch && <span className="proj-mba">{player.batch}</span>}
+        </div>
+
+        {state.status === 'sold' && buyer && (
+          <div className="proj-stamp sold" key={`sold-${state.updated_at}`} style={{ ['--team' as string]: buyer.color }}>
+            <div className="stamp-word">SOLD</div>
+            <div className="stamp-detail">
+              to {buyer.name} for {pts(state.current_bid)} pts
+            </div>
           </div>
-        </div>
-      )}
-      {state.status === 'unsold' && (
-        <div className="proj-stamp unsold" key={`unsold-${state.updated_at}`}>
-          <div className="stamp-word">UNSOLD</div>
-        </div>
-      )}
+        )}
+        {state.status === 'unsold' && (
+          <div className="proj-stamp unsold" key={`unsold-${state.updated_at}`}>
+            <div className="stamp-word">UNSOLD</div>
+          </div>
+        )}
+      </div>
+
+      <TopBuys data={data} highlightId={state.status === 'sold' ? player.id : null} />
     </div>
+  )
+}
+
+function TopBuys({ data, highlightId }: { data: AuctionData; highlightId: string | null }) {
+  const teamsById = new Map(data.teams.map((t) => [t.id, t]))
+  const top = data.players
+    .filter((p) => p.status === 'sold')
+    .sort((a, b) => (b.sold_price ?? 0) - (a.sold_price ?? 0) || (a.sold_at ?? '').localeCompare(b.sold_at ?? ''))
+    .slice(0, 5)
+  return (
+    <aside className="proj-topbuys">
+      <h2>Top 5 buys</h2>
+      {top.length === 0 ? (
+        <p className="proj-topbuys-empty">No players sold yet</p>
+      ) : (
+        <ol>
+          {top.map((p, i) => {
+            const team = p.team_id ? teamsById.get(p.team_id) : undefined
+            return (
+              <li
+                key={p.id}
+                className={p.id === highlightId ? 'fresh' : ''}
+                style={{ ['--team' as string]: team?.color ?? '#334155' }}
+              >
+                <span className="rank">{i + 1}</span>
+                <PlayerPhoto name={p.name} src={p.photo_url} className="avatar-topbuy" />
+                <span className="who">
+                  <strong>{p.name}</strong>
+                  <span>{team?.short_code ?? ''}</span>
+                </span>
+                <span className="price">{pts(p.sold_price)}</span>
+              </li>
+            )
+          })}
+        </ol>
+      )}
+    </aside>
   )
 }
 

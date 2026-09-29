@@ -3,7 +3,7 @@ import { Brand, DummyBadge } from '../components/Brand'
 import { CategoryTag } from '../components/CategoryTag'
 import { OperatorGate } from '../components/OperatorGate'
 import { PlayerPhoto } from '../components/PlayerPhoto'
-import { pts } from '../lib/format'
+import { pts, roleLabel } from '../lib/format'
 import { checkSale, nextBid, previousBid } from '../lib/rules'
 import { errorMessage, supabase } from '../lib/supabase'
 import type { AuctionData, Player, TeamStanding } from '../lib/types'
@@ -13,20 +13,19 @@ import { Link } from '../router'
 type PoolFilter = 'open' | 'available' | 'unsold' | 'sold' | 'all'
 type Toast = { kind: 'ok' | 'error'; text: string }
 type RpcResult = PromiseLike<{ error: unknown }>
-type Group = 'All' | 'Batter' | 'Bowler' | 'All-rounder' | 'WK'
+type Group = 'All' | 'Batter' | 'Bowler' | 'All-rounder'
 
 const GROUPS: Array<{ id: Group; label: string }> = [
-  { id: 'All', label: 'All roles' },
+  { id: 'All', label: 'All players' },
   { id: 'Batter', label: 'Batsmen' },
   { id: 'Bowler', label: 'Bowlers' },
   { id: 'All-rounder', label: 'All-rounders' },
-  { id: 'WK', label: 'Wicketkeepers' },
 ]
 
 const groupLabel = (g: Group) => (GROUPS.find((x) => x.id === g)?.label ?? '').toLowerCase()
 
 const inGroup = (p: Player, g: Group) =>
-  g === 'All' || (g === 'WK' ? p.is_wicketkeeper || p.role === 'Wicketkeeper' : p.role === g)
+  g === 'All' || p.role === g || (g === 'Batter' && p.role === 'Wicketkeeper')
 
 export default function Operator() {
   return <OperatorGate>{(email) => <OperatorDesk email={email} />}</OperatorGate>
@@ -190,8 +189,8 @@ function PlayerPool({ data, busy, run }: PanelProps) {
               <div>
                 <div className="pool-name">{p.name}</div>
                 <div className="muted small">
-                  {p.role}
-                  {p.is_wicketkeeper && p.role !== 'Wicketkeeper' ? ' · WK' : ''}
+                  {roleLabel(p.role)}
+                  {p.batch ? ` · ${p.batch}` : ''}
                   {p.category && (
                     <>
                       {' · '}
@@ -276,8 +275,7 @@ function LivePanel({ data, busy, run }: PanelProps) {
           </div>
           <h2 className="live-name">{player.name}</h2>
           <div className="live-meta">
-            <CategoryTag category={player.category} /> <span>{player.role}</span>
-            {player.is_wicketkeeper && player.role !== 'Wicketkeeper' && <span>Wicketkeeper</span>}
+            <CategoryTag category={player.category} /> <span>{roleLabel(player.role)}</span>
             {player.batting_style && <span>{player.batting_style}</span>}
             {player.bowling_style && <span>{player.bowling_style}</span>}
           </div>
@@ -567,7 +565,7 @@ function TeamRow(props: {
             <li key={p.id}>
               <span className="name-with-avatar">
                 <PlayerPhoto name={p.name} src={p.photo_url} className="avatar-xs" />
-                {p.name} <span className="muted small">{p.role}</span>
+                {p.name} <span className="muted small">{roleLabel(p.role)}</span>
               </span>
               <strong>{pts(p.sold_price)}</strong>
             </li>

@@ -117,6 +117,7 @@ describe('parseRegistrationRows', () => {
     expect(sheet.duplicatesRemoved).toBe(1)
     const asha = sheet.players.find((p) => p.roll_no === '25F101')!
     expect(asha.role).toBe('All-rounder')
+    expect(asha.batch).toBe('MBA 2')
     expect(asha.photo_file).toBe('IMG_2_ASHA RAO 1.png')
     expect(asha.issues.some((i) => i.text.includes('Registered 2 times'))).toBe(true)
   })
@@ -125,7 +126,7 @@ describe('parseRegistrationRows', () => {
     const vik = sheet.players.find((p) => p.roll_no === '24B12')!
     expect(vik).toMatchObject({
       name: 'Vik Das',
-      batch: '2024 intake',
+      batch: 'MBA 1',
       batting_style: 'Left-hand bat',
       bowling_style: 'Left-arm leg-spin',
       is_wicketkeeper: true,

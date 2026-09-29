@@ -13,6 +13,7 @@ import {
   type FieldKey,
   type ParsedPlayer,
 } from '../lib/importer'
+import { roleLabel } from '../lib/format'
 import { photoPath, toSquarePhoto } from '../lib/photos'
 import { errorMessage, supabase } from '../lib/supabase'
 import { useAuction } from '../lib/useAuction'
@@ -454,8 +455,8 @@ function Importer({ email }: { email: string }) {
                         <td>{p.name || <span className="muted">—</span>}</td>
                         <td>{p.roll_no || <span className="muted">—</span>}</td>
                         <td>
-                          {p.role ?? <span className="muted">—</span>}
-                          {p.is_wicketkeeper && p.role !== 'Wicketkeeper' && <span className="tag">WK</span>}
+                          {p.role ? roleLabel(p.role) : <span className="muted">—</span>}
+                          {p.batch && <span className="tag">{p.batch}</span>}
                         </td>
                         <td className="small">{p.batting_style ?? '—'}</td>
                         <td className="small">{p.bowling_style ?? '—'}</td>
