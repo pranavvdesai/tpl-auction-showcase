@@ -1,9 +1,12 @@
 import { supabaseConfigured } from './lib/supabase'
 import { Link, usePathname } from './router'
+import { lazy, Suspense } from 'react'
 import Home from './pages/Home'
 import Login from './pages/Login'
 import Operator from './pages/Operator'
 import Projection from './pages/Projection'
+
+const ImportPage = lazy(() => import('./pages/Import'))
 
 export default function App() {
   const path = usePathname()
@@ -26,6 +29,12 @@ export default function App() {
       return <Login />
     case '/operator':
       return <Operator />
+    case '/import':
+      return (
+        <Suspense fallback={<main className="center-page muted">Loading importer…</main>}>
+          <ImportPage />
+        </Suspense>
+      )
     case '/projection':
       return <Projection />
     default:

@@ -29,13 +29,16 @@ export interface Player {
   lot_no: number
   name: string
   roll_no: string
-  batch: string
+  batch: string | null
   role: Role
-  category: Category
+  category: Category | null
   base_price: number
   batting_style: string | null
   bowling_style: string | null
   highlight: string | null
+  is_wicketkeeper: boolean
+  photo_url: string | null
+  photo_file: string | null
   status: PlayerStatus
   team_id: string | null
   sold_price: number | null

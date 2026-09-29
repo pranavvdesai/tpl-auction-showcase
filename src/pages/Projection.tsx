@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { CategoryTag } from '../components/CategoryTag'
+import { PlayerPhoto } from '../components/PlayerPhoto'
 import { pts } from '../lib/format'
 import type { AuctionData, Player, TeamStanding } from '../lib/types'
 import { useAuction } from '../lib/useAuction'
@@ -79,14 +80,20 @@ function Stage({ data }: { data: AuctionData }) {
 
   return (
     <div className="proj-lot">
+      <div className="proj-photo" style={{ ['--team' as string]: buyer?.color ?? '#b45309' }}>
+        <PlayerPhoto name={player.name} src={player.photo_url} className="avatar-proj" />
+      </div>
       <div className="proj-player">
         <div className="proj-lotno">
           LOT #{player.lot_no} <CategoryTag category={player.category} />
         </div>
         <h1>{player.name}</h1>
-        <div className="proj-role">{player.role}</div>
+        <div className="proj-role">
+          {player.role}
+          {player.is_wicketkeeper && player.role !== 'Wicketkeeper' && <span className="proj-wk">WK</span>}
+        </div>
         <div className="proj-details">
-          <span>{player.batch}</span>
+          {player.batch && <span>{player.batch}</span>}
           {player.batting_style && <span>{player.batting_style}</span>}
           {player.bowling_style && <span>{player.bowling_style}</span>}
         </div>
@@ -163,7 +170,10 @@ function IdleBoard({ data }: { data: AuctionData }) {
               const team = p.team_id ? teamsById.get(p.team_id) : undefined
               return (
                 <li key={p.id}>
-                  <span>{p.name}</span>
+                  <span className="name-with-avatar">
+                    <PlayerPhoto name={p.name} src={p.photo_url} className="avatar-top" />
+                    {p.name}
+                  </span>
                   <span style={{ color: team?.color }}>{team?.name}</span>
                   <strong>{pts(p.sold_price)}</strong>
                 </li>
@@ -198,7 +208,10 @@ function SquadsBoard({ data }: { data: AuctionData }) {
             <ul>
               {squad.map((p) => (
                 <li key={p.id}>
-                  <span>{p.name}</span>
+                  <span className="name-with-avatar">
+                    <PlayerPhoto name={p.name} src={p.photo_url} className="avatar-xs" />
+                    {p.name}
+                  </span>
                   <strong>{pts(p.sold_price)}</strong>
                 </li>
               ))}

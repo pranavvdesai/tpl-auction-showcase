@@ -4,6 +4,11 @@ import { errorMessage, supabase } from '../lib/supabase'
 import { useOperatorSession } from '../lib/useOperatorSession'
 import { Link, navigate } from '../router'
 
+function nextPath(): string {
+  const next = new URLSearchParams(window.location.search).get('next') ?? ''
+  return next.startsWith('/') && !next.startsWith('//') ? next : '/operator'
+}
+
 export default function Login() {
   const session = useOperatorSession()
   const [email, setEmail] = useState('')
@@ -12,7 +17,7 @@ export default function Login() {
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
-    if (session.status === 'operator') navigate('/operator', { replace: true })
+    if (session.status === 'operator') navigate(nextPath(), { replace: true })
   }, [session.status])
 
   const submit = async (e: FormEvent) => {
@@ -28,7 +33,7 @@ export default function Login() {
         await supabase.auth.signOut()
         throw new Error('This account is not registered as an auction operator.')
       }
-      navigate('/operator', { replace: true })
+      navigate(nextPath(), { replace: true })
     } catch (err) {
       setError(errorMessage(err))
     } finally {

@@ -12,8 +12,8 @@ export default function Home() {
       <section className="home-hero">
         <h1>TPL Auction Dashboard</h1>
         <p>
-          A live auction desk for the TAPMI Premier League. The operator records every bid from one screen, and the
-          projector view updates instantly for the room.
+          A live auction desk for the TAPMI Premier League. Bidding happens in the room; the operator records each final
+          sale from one screen, and the projector view updates instantly with the player’s photo, price and team purses.
         </p>
       </section>
 
@@ -33,6 +33,15 @@ export default function Home() {
           <p>Full-screen, read-only live view of the player on the floor, sold results and team purses.</p>
           <span className="home-card-link">Open /projection in a new tab →</span>
         </a>
+        <Link to="/import" className="home-card">
+          <span className="home-card-kicker">Before the auction</span>
+          <h2>Import players</h2>
+          <p>
+            Upload the Microsoft Forms registration sheet and the photo zip. Details and photos are matched automatically
+            and checked before saving. Requires operator sign-in.
+          </p>
+          <span className="home-card-link">Open /import →</span>
+        </Link>
       </section>
 
       <section className="card rules">

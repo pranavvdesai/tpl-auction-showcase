@@ -1,44 +1,35 @@
 import { useEffect, useMemo, useState, type FormEvent } from 'react'
 import { Brand, DummyBadge } from '../components/Brand'
 import { CategoryTag } from '../components/CategoryTag'
+import { OperatorGate } from '../components/OperatorGate'
+import { PlayerPhoto } from '../components/PlayerPhoto'
 import { pts } from '../lib/format'
 import { checkSale } from '../lib/rules'
 import { errorMessage, supabase } from '../lib/supabase'
-import type { AuctionData, Category, Player, TeamStanding } from '../lib/types'
+import type { AuctionData, Player, TeamStanding } from '../lib/types'
 import { useAuction } from '../lib/useAuction'
-import { useOperatorSession } from '../lib/useOperatorSession'
-import { navigate } from '../router'
+import { Link } from '../router'
 
 type PoolFilter = 'open' | 'available' | 'unsold' | 'sold' | 'all'
 type Toast = { kind: 'ok' | 'error'; text: string }
 type RpcResult = PromiseLike<{ error: unknown }>
+type Group = 'All' | 'Batter' | 'Bowler' | 'All-rounder' | 'WK'
 
-const CATEGORIES: Array<Category | 'All'> = ['All', 'Marquee', 'A', 'B', 'C']
+const GROUPS: Array<{ id: Group; label: string }> = [
+  { id: 'All', label: 'All roles' },
+  { id: 'Batter', label: 'Batters' },
+  { id: 'Bowler', label: 'Bowlers' },
+  { id: 'All-rounder', label: 'All-rounders' },
+  { id: 'WK', label: 'Wicketkeepers' },
+]
+
+const groupLabel = (g: Group) => (GROUPS.find((x) => x.id === g)?.label ?? '').toLowerCase()
+
+const inGroup = (p: Player, g: Group) =>
+  g === 'All' || (g === 'WK' ? p.is_wicketkeeper || p.role === 'Wicketkeeper' : p.role === g)
 
 export default function Operator() {
-  const session = useOperatorSession()
-
-  useEffect(() => {
-    if (session.status === 'signed-out') navigate('/login', { replace: true })
-  }, [session.status])
-
-  if (session.status === 'loading' || session.status === 'signed-out') {
-    return <main className="center-page muted">Checking operator access…</main>
-  }
-  if (session.status === 'not-operator') {
-    return (
-      <main className="center-page">
-        <div className="card narrow">
-          <h1>No operator access</h1>
-          <p>{session.session.user.email} is signed in but is not registered as an auction operator.</p>
-          <button className="btn" onClick={() => void supabase.auth.signOut()}>
-            Sign out
-          </button>
-        </div>
-      </main>
-    )
-  }
-  return <OperatorDesk email={session.session.user.email ?? 'operator'} />
+  return <OperatorGate>{(email) => <OperatorDesk email={email} />}</OperatorGate>
 }
 
 function OperatorDesk({ email }: { email: string }) {
@@ -72,6 +63,9 @@ function OperatorDesk({ email }: { email: string }) {
         <div className="topbar-actions">
           <DummyBadge />
           <span className={`live-dot ${live ? 'on' : ''}`}>{live ? 'Live sync' : 'Connecting…'}</span>
+          <Link className="btn ghost" to="/import">
+            Import players
+          </Link>
           <a className="btn ghost" href="/projection" target="_blank" rel="noreferrer">
             Open projection ↗
           </a>
@@ -109,23 +103,24 @@ interface PanelProps {
 
 function PlayerPool({ data, busy, run }: PanelProps) {
   const [query, setQuery] = useState('')
-  const [category, setCategory] = useState<Category | 'All'>('All')
+  const [group, setGroup] = useState<Group>('All')
   const [filter, setFilter] = useState<PoolFilter>('open')
   const lotLive = data.state.status === 'live'
 
   const visible = useMemo(() => {
     const q = query.trim().toLowerCase()
     return data.players.filter((p) => {
-      if (category !== 'All' && p.category !== category) return false
+      if (!inGroup(p, group)) return false
       if (filter === 'open' && p.status === 'sold') return false
       if (filter !== 'open' && filter !== 'all' && p.status !== filter) return false
       if (q && !`${p.name} ${p.roll_no} ${p.role} ${p.lot_no}`.toLowerCase().includes(q)) return false
       return true
     })
-  }, [data.players, query, category, filter])
+  }, [data.players, query, group, filter])
 
+  const groupPlayers = data.players.filter((p) => inGroup(p, group))
   const nextUp =
-    data.players.find((p) => p.status === 'available') ?? data.players.find((p) => p.status === 'unsold') ?? null
+    groupPlayers.find((p) => p.status === 'available') ?? groupPlayers.find((p) => p.status === 'unsold') ?? null
 
   const counts = {
     available: data.players.filter((p) => p.status === 'available').length,
@@ -147,8 +142,14 @@ function PlayerPool({ data, busy, run }: PanelProps) {
         disabled={busy || lotLive || !nextUp}
         onClick={() => nextUp && void run(`Lot ${nextUp.lot_no}: ${nextUp.name} is live`, () => supabase.rpc('start_lot', { p_player_id: nextUp.id }))}
       >
-        {nextUp ? `Start next: #${nextUp.lot_no} ${nextUp.name}` : 'No players left'}
+        {nextUp ? `Start next: #${nextUp.lot_no} ${nextUp.name}` : 'No players left in this group'}
       </button>
+      {group !== 'All' && <p className="muted small">“Start next” picks from {groupLabel(group)} only.</p>}
+      {data.players.length === 0 && (
+        <p className="muted small">
+          The pool is empty. <Link to="/import">Import the registration sheet</Link> to add players.
+        </p>
+      )}
 
       <input
         className="search"
@@ -157,9 +158,9 @@ function PlayerPool({ data, busy, run }: PanelProps) {
         onChange={(e) => setQuery(e.target.value)}
       />
       <div className="chips">
-        {CATEGORIES.map((c) => (
-          <button key={c} className={`chip ${category === c ? 'active' : ''}`} onClick={() => setCategory(c)}>
-            {c === 'All' ? 'All sets' : c === 'Marquee' ? 'Marquee' : `Set ${c}`}
+        {GROUPS.map((g) => (
+          <button key={g.id} className={`chip ${group === g.id ? 'active' : ''}`} onClick={() => setGroup(g.id)}>
+            {g.label}
           </button>
         ))}
       </div>
@@ -176,10 +177,19 @@ function PlayerPool({ data, busy, run }: PanelProps) {
           <li key={p.id} className={`pool-item status-${p.status} ${p.id === data.state.current_player_id ? 'current' : ''}`}>
             <div className="pool-main">
               <span className="lot">#{p.lot_no}</span>
+              <PlayerPhoto name={p.name} src={p.photo_url} className="avatar-sm" />
               <div>
                 <div className="pool-name">{p.name}</div>
                 <div className="muted small">
-                  {p.role} · <CategoryTag category={p.category} /> · base {pts(p.base_price)}
+                  {p.role}
+                  {p.is_wicketkeeper && p.role !== 'Wicketkeeper' ? ' · WK' : ''}
+                  {p.category && (
+                    <>
+                      {' · '}
+                      <CategoryTag category={p.category} />
+                    </>
+                  )}{' '}
+                  · base {pts(p.base_price)}
                 </div>
               </div>
             </div>
@@ -243,13 +253,16 @@ function LivePanel({ data, busy, run }: PanelProps) {
   return (
     <section className={`panel live lot-${state.status}`}>
       <div className="live-head">
-        <div>
+        <PlayerPhoto name={player.name} src={player.photo_url} className="avatar-live" />
+        <div className="live-info">
           <div className="muted small">
-            Lot #{player.lot_no} · {player.roll_no} · {player.batch}
+            Lot #{player.lot_no} · {player.roll_no}
+            {player.batch ? ` · ${player.batch}` : ''}
           </div>
           <h2 className="live-name">{player.name}</h2>
           <div className="live-meta">
             <CategoryTag category={player.category} /> <span>{player.role}</span>
+            {player.is_wicketkeeper && player.role !== 'Wicketkeeper' && <span>Wicketkeeper</span>}
             {player.batting_style && <span>{player.batting_style}</span>}
             {player.bowling_style && <span>{player.bowling_style}</span>}
           </div>
@@ -399,7 +412,12 @@ function ResultsPanel({ data, busy, run }: PanelProps) {
               return (
                 <tr key={p.id}>
                   <td>#{p.lot_no}</td>
-                  <td>{p.name}</td>
+                  <td>
+                    <span className="name-with-avatar">
+                      <PlayerPhoto name={p.name} src={p.photo_url} className="avatar-xs" />
+                      {p.name}
+                    </span>
+                  </td>
                   <td>
                     <span className="team-dot" style={{ background: team?.color }} /> {team?.short_code}
                   </td>
@@ -472,7 +490,10 @@ function TeamRow(props: { team: TeamStanding; squad: Player[]; maxSquad: number;
           {squad.length === 0 && <li className="muted small">No players bought yet.</li>}
           {squad.map((p) => (
             <li key={p.id}>
-              {p.name} <span className="muted small">{p.role}</span>
+              <span className="name-with-avatar">
+                <PlayerPhoto name={p.name} src={p.photo_url} className="avatar-xs" />
+                {p.name} <span className="muted small">{p.role}</span>
+              </span>
               <strong>{pts(p.sold_price)}</strong>
             </li>
           ))}

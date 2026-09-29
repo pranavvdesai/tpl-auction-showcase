@@ -8,3 +8,6 @@ supabase/.temp
 supabase/.branches
 *.log
 .DS_Store
+trial-import/
+*.xlsx
+*.zip
