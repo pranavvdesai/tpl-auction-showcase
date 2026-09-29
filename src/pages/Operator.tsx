@@ -3,6 +3,7 @@ import { Brand, DummyBadge } from '../components/Brand'
 import { CategoryTag } from '../components/CategoryTag'
 import { OperatorGate } from '../components/OperatorGate'
 import { PlayerPhoto } from '../components/PlayerPhoto'
+import { pickRandomPlayer } from '../lib/draw'
 import { pts, roleLabel } from '../lib/format'
 import { checkSale, nextBid, previousBid } from '../lib/rules'
 import { errorMessage, supabase } from '../lib/supabase'
@@ -120,6 +121,10 @@ function PlayerPool({ data, busy, run }: PanelProps) {
   const groupPlayers = data.players.filter((p) => inGroup(p, group))
   const nextUp =
     groupPlayers.find((p) => p.status === 'available') ?? groupPlayers.find((p) => p.status === 'unsold') ?? null
+  const drawRandom = () => {
+    const pick = pickRandomPlayer(groupPlayers)
+    if (pick) void run(`Drew lot ${pick.lot_no}: ${pick.name} is live`, () => supabase.rpc('start_lot', { p_player_id: pick.id }))
+  }
 
   const counts = {
     available: data.players.filter((p) => p.status === 'available').length,
@@ -137,14 +142,17 @@ function PlayerPool({ data, busy, run }: PanelProps) {
         </span>
       </div>
 
+      <button className="btn primary block" disabled={busy || lotLive || !nextUp} onClick={drawRandom}>
+        {nextUp ? `Draw random ${group === 'All' ? 'player' : roleLabel(group).toLowerCase()}` : 'No players left in this group'}
+      </button>
       <button
-        className="btn primary block"
+        className="btn ghost block small"
         disabled={busy || lotLive || !nextUp}
         onClick={() => nextUp && void run(`Lot ${nextUp.lot_no}: ${nextUp.name} is live`, () => supabase.rpc('start_lot', { p_player_id: nextUp.id }))}
       >
-        {nextUp ? `Start next: #${nextUp.lot_no} ${nextUp.name}` : 'No players left in this group'}
+        {nextUp ? `or start in order: #${nextUp.lot_no} ${nextUp.name}` : 'No players left'}
       </button>
-      {group !== 'All' && <p className="muted small">“Start next” picks from {groupLabel(group)} only.</p>}
+      {group !== 'All' && <p className="muted small">Draws and “start in order” pick from {groupLabel(group)} only.</p>}
       {counts.available === 0 && counts.unsold > 0 && short.length > 0 && (
         <div className="draft-note small">
           <strong>Final unsold draft.</strong> Teams below {data.settings.min_squad} pick unsold players at{' '}

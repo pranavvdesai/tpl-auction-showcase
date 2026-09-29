@@ -1,5 +1,7 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
+import { DrawReveal, useDrawReveal } from '../components/DrawReveal'
 import { PlayerPhoto } from '../components/PlayerPhoto'
+import { pickRandomPlayer } from '../lib/draw'
 import { pts, roleLabel } from '../lib/format'
 import type { AuctionData, Player, TeamStanding } from '../lib/types'
 import { useAuction } from '../lib/useAuction'
@@ -11,15 +13,29 @@ export default function Projection() {
   const [view, setView] = useState<View>(() =>
     new URLSearchParams(window.location.search).get('view') === 'squads' ? 'squads' : 'auto',
   )
+  const draw = useDrawReveal(data?.state)
+  const { skip: skipDraw, toggle: toggleDraw, preview } = draw
+  const players = data?.players
+  const previewDraw = useCallback(() => {
+    const pick = players && pickRandomPlayer(players.map((p) => ({ ...p, status: 'available' as const })))
+    if (pick) preview(pick.id)
+  }, [players, preview])
+  const drawPlayer = draw.drawing ? data?.players.find((p) => p.id === draw.drawing?.playerId) : undefined
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'f' || e.key === 'F') toggleFullscreen()
       if (e.key === 't' || e.key === 'T') setView((v) => (v === 'squads' ? 'auto' : 'squads'))
+      if (e.key === 'd' || e.key === 'D') toggleDraw()
+      if (e.key === 'p' || e.key === 'P') previewDraw()
+      if (e.key === ' ') {
+        e.preventDefault()
+        skipDraw()
+      }
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [])
+  }, [toggleDraw, previewDraw, skipDraw])
 
   return (
     <main className="projection" onDoubleClick={toggleFullscreen}>
@@ -39,6 +55,8 @@ export default function Projection() {
         <button onClick={() => setView(view === 'squads' ? 'auto' : 'squads')}>
           {view === 'squads' ? 'Show live lot (T)' : 'Show squads (T)'}
         </button>
+        <button onClick={toggleDraw}>{draw.enabled ? 'Draw animation on (D)' : 'Draw animation off (D)'}</button>
+        <button onClick={previewDraw}>Preview draw (P)</button>
         <button onClick={toggleFullscreen}>Fullscreen (F)</button>
       </div>
 
@@ -47,7 +65,13 @@ export default function Projection() {
       {data && (
         <>
           <section className="proj-stage">
-            {view === 'squads' ? <SquadsBoard data={data} /> : <Stage data={data} />}
+            {view === 'squads' ? (
+              <SquadsBoard data={data} />
+            ) : draw.drawing && drawPlayer ? (
+              <DrawReveal key={draw.drawing.key} player={drawPlayer} />
+            ) : (
+              <Stage data={data} />
+            )}
           </section>
           <footer className="proj-teams">
             {data.teams.map((t) => (
