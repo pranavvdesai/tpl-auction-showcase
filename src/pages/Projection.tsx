@@ -159,7 +159,7 @@ function TopBuys({ data, highlightId }: { data: AuctionData; highlightId: string
                 <PlayerPhoto name={p.name} src={p.photo_url} className="avatar-topbuy" />
                 <span className="who">
                   <strong>{p.name}</strong>
-                  <span>{team?.short_code ?? ''}</span>
+                  <span>{team?.name ?? ''}</span>
                 </span>
                 <span className="price">{pts(p.sold_price)}</span>
               </li>
