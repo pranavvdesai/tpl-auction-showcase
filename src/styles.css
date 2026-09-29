@@ -912,15 +912,6 @@ select:focus {
   letter-spacing: 0.08em;
 }
 
-.proj-sound-hint {
-  font-size: 1.4vh;
-  font-weight: 700;
-  color: #0f172a;
-  background: #fbbf24;
-  border-radius: 999px;
-  padding: 0.4vh 0.9vw;
-}
-
 .proj-controls {
   position: absolute;
   top: 8vh;
