@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { PlayerPhoto } from '../components/PlayerPhoto'
 import { pts, roleLabel } from '../lib/format'
+import { useSaleSound } from '../lib/saleSound'
 import type { AuctionData, Player, TeamStanding } from '../lib/types'
 import { useAuction } from '../lib/useAuction'
 
@@ -11,15 +12,18 @@ export default function Projection() {
   const [view, setView] = useState<View>(() =>
     new URLSearchParams(window.location.search).get('view') === 'squads' ? 'squads' : 'auto',
   )
+  const sound = useSaleSound(data?.state)
+  const toggleSound = sound.toggle
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'f' || e.key === 'F') toggleFullscreen()
       if (e.key === 't' || e.key === 'T') setView((v) => (v === 'squads' ? 'auto' : 'squads'))
+      if (e.key === 'm' || e.key === 'M') toggleSound()
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [])
+  }, [toggleSound])
 
   return (
     <main className="projection" onDoubleClick={toggleFullscreen}>
@@ -30,6 +34,7 @@ export default function Projection() {
           <strong>{data?.settings.season_name ?? 'TPL'} Player Auction</strong>
         </div>
         <div className="proj-status">
+          {sound.enabled && !sound.unlocked && <span className="proj-sound-hint">Click once to enable sound</span>}
           <span className="proj-dummy">Dummy data preview</span>
           <span className={`live-dot ${live ? 'on' : ''}`}>{live ? 'LIVE' : 'Connecting'}</span>
         </div>
@@ -39,6 +44,7 @@ export default function Projection() {
         <button onClick={() => setView(view === 'squads' ? 'auto' : 'squads')}>
           {view === 'squads' ? 'Show live lot (T)' : 'Show squads (T)'}
         </button>
+        <button onClick={sound.toggle}>{sound.enabled ? 'Sound on (M)' : 'Sound off (M)'}</button>
         <button onClick={toggleFullscreen}>Fullscreen (F)</button>
       </div>
 
