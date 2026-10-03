@@ -99,16 +99,13 @@ export function DrawReveal({ player }: { player: Player }) {
         <g className="draw-bat-hero">
           <Bat />
           <g className="draw-autograph" transform="rotate(90 400 474)">
-            <text ref={nameRef} x="400" y={lines.length > 1 ? 474 : 472} textAnchor="middle" dominantBaseline="middle" className="draw-name">
+            <text ref={nameRef} x="400" y="474" textAnchor="middle" dominantBaseline="middle" className="draw-name">
               {lines.map((line, i) => (
                 <tspan key={i} x="400" dy={lines.length === 1 ? 0 : i === 0 ? '-0.55em' : '1.1em'}>
                   {line}
                 </tspan>
               ))}
             </text>
-            {lines.length === 1 && (
-              <path d="M352 486 q16 6 32 0 t32 0 t32 0" fill="none" stroke="#1d4ed8" strokeWidth="1.4" strokeLinecap="round" />
-            )}
           </g>
         </g>
 
