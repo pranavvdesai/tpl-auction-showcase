@@ -6,9 +6,9 @@ import type { AuctionState, Lot, Player } from '../lib/types'
 /** Must match the .draw-* keyframes in styles.css. */
 export const DRAW_MS = 4200
 /** Arrow lot draw timeline, in ms from the moment the reveal mounts. */
-const SPIN_1_MS = 4800
-const SPIN_2_MS = 3800
-const LAND_HOLD_MS = 1600
+const SPIN_1_MS = 8000
+const SPIN_2_MS = 6500
+const LAND_HOLD_MS = 2000
 const SPIN_1_START = 150
 const SPIN_2_START = SPIN_1_START + SPIN_1_MS + LAND_HOLD_MS
 const FINAL_AT = SPIN_2_START + SPIN_2_MS + LAND_HOLD_MS
@@ -148,8 +148,8 @@ type Step = 'idle' | 'spin1' | 'land1' | 'spin2' | 'land2' | 'final'
 export function LotOrderReveal({ order }: { order: Lot[] }) {
   const [step, setStep] = useState<Step>('idle')
   const [angles] = useState(() => {
-    const first = landingAngle(0, order[0], 6)
-    return { first, second: landingAngle(first, order[1], 5) }
+    const first = landingAngle(0, order[0], 10)
+    return { first, second: landingAngle(first, order[1], 8) }
   })
 
   useEffect(() => {
@@ -218,7 +218,7 @@ export function LotOrderReveal({ order }: { order: Lot[] }) {
           style={{
             transform: `rotate(${rotation}deg)`,
             transformOrigin: `${CX}px ${CY}px`,
-            transition: spinMs ? `transform ${spinMs}ms cubic-bezier(0.12, 0.72, 0.18, 1)` : 'none',
+            transition: spinMs ? `transform ${spinMs}ms cubic-bezier(0.2, 0.62, 0.08, 1)` : 'none',
           }}
           filter="url(#arrow-shadow)"
         >
