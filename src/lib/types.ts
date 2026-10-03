@@ -32,6 +32,8 @@ export interface TeamStanding {
 export interface Player {
   id: string
   lot_no: number
+  /** Order in which the player was drawn (1 = first on the floor); null until drawn. */
+  draw_no: number | null
   name: string
   roll_no: string
   batch: string | null

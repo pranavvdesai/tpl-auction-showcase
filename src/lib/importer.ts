@@ -7,6 +7,7 @@ export type FieldKey =
   | 'name'
   | 'roll_no'
   | 'batch'
+  | 'gender'
   | 'role'
   | 'batting'
   | 'bowling_hand'
@@ -21,6 +22,7 @@ export const FIELD_LABELS: Record<FieldKey, string> = {
   name: 'Player name',
   roll_no: 'Roll number',
   batch: 'Class (MBA / IPM year)',
+  gender: 'Gender (women are left out)',
   role: 'Primary role',
   batting: 'Batting hand',
   bowling_hand: 'Bowling hand',
@@ -40,6 +42,7 @@ const DETECTORS: Array<[FieldKey, (h: string) => boolean]> = [
   ['photo', (h) => /PHOTO|PICTURE|IMAGE|SELFIE|\bPIC\b/.test(h)],
   ['roll_no', (h) => /ROLL|REG(ISTRATION)? ?NO/.test(h)],
   ['batch', (h) => /\bYEAR\b|\bCLASS\b|BATCH|PROGRAM|COURSE/.test(h)],
+  ['gender', (h) => /GENDER|\bSEX\b/.test(h)],
   ['wicketkeeping', (h) => /WICKET ?KEEP|KEEPING|\bWK\b/.test(h)],
   ['bowling_hand', (h) => /BOWL/.test(h) && /HAND|ARM/.test(h)],
   ['bowling_type', (h) => /BOWL/.test(h) && /TYPE|STYLE|KIND/.test(h)],
@@ -90,6 +93,7 @@ export interface ParsedPlayer {
   bowling_style: string | null
   is_wicketkeeper: boolean
   photo_file: string | null
+  female: boolean
   submittedAt: number
   issues: Issue[]
 }
@@ -208,6 +212,7 @@ export function normalizeRow(cells: Cell[], map: ColumnMap, rowNumber: number): 
     bowling_style: mapBowling(get('bowling_hand'), get('bowling_type')),
     is_wicketkeeper: role === 'Wicketkeeper' || wk === 'YES' || wk === 'Y',
     photo_file,
+    female: /^(F|FEMALE|WOMAN|GIRL)$/.test(clean(get('gender')).toUpperCase()),
     submittedAt: typeof submittedRaw === 'number' ? submittedRaw : Date.parse(String(submittedRaw ?? '')) || rowNumber,
     issues,
   }
@@ -219,6 +224,8 @@ export interface ParsedSheet {
   players: ParsedPlayer[]
   totalRows: number
   duplicatesRemoved: number
+  /** The auction is for men only; women's registrations are dropped. */
+  womenExcluded: number
 }
 
 export function parseRegistrationRows(rows: Cell[][], map?: ColumnMap): ParsedSheet {
@@ -228,8 +235,16 @@ export function parseRegistrationRows(rows: Cell[][], map?: ColumnMap): ParsedSh
   const columns = map ?? detectColumns(rows[headerIndex])
   const body = rows.slice(headerIndex + 1).filter((r) => r.some((c) => clean(c) !== ''))
   const parsed = body.map((cells, i) => normalizeRow(cells, columns, headerIndex + i + 2))
-  const { players, duplicatesRemoved } = dedupeByRoll(parsed)
-  return { headers, map: columns, players, totalRows: body.length, duplicatesRemoved }
+  const deduped = dedupeByRoll(parsed)
+  const players = deduped.players.filter((p) => !p.female)
+  return {
+    headers,
+    map: columns,
+    players,
+    totalRows: body.length,
+    duplicatesRemoved: deduped.duplicatesRemoved,
+    womenExcluded: deduped.players.length - players.length,
+  }
 }
 
 export function dedupeByRoll(players: ParsedPlayer[]): { players: ParsedPlayer[]; duplicatesRemoved: number } {

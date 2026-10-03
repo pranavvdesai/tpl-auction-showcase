@@ -175,7 +175,7 @@ function Stage({ data }: { data: AuctionData }) {
       </div>
 
       <div className="proj-center">
-        <div className="proj-lotno">LOT #{player.lot_no}</div>
+        {player.draw_no && <div className="proj-lotno">PLAYER NO. {player.draw_no}</div>}
         <div className="proj-photo" style={{ ['--team' as string]: buyer?.color ?? '#b45309' }}>
           <PlayerPhoto name={player.name} src={player.photo_url} className="avatar-proj" eager />
         </div>

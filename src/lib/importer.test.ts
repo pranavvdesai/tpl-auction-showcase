@@ -30,6 +30,7 @@ const HEADERS = [
   '"WHAT IS YOUR PRIMARY ROLE IN TEAM"?"\n',
   'HD PHOTOGRAPH',
   'Year',
+  'Gender',
 ]
 
 const link = (file: string) =>
@@ -38,10 +39,11 @@ const link = (file: string) =>
 // Fictional rows shaped like a real Microsoft Forms export.
 const ROWS: Cell[][] = [
   HEADERS,
-  [1, 45955.1, 45955.2, 'a@x.edu', 'ASHA RAO 1', null, '  asha   RAO ', '25f101', '9000000001', 'RIGHT HAND BATSMAN', 'RIGHT HAND\u00a0', 'PACE', 'NO', 'BATSMAN', link('IMG_1_ASHA RAO 1.jpg'), 'MBA 1'],
-  [2, 45955.3, 45955.4, 'b@x.edu', 'VIK DAS 2', null, 'Vik Das', '24U12', '9000000002', 'LEFT HAND BATSMAN', 'LEFT HAND\u00a0', 'LEG SPIN', 'YES', 'ALLROUNDER', link('Photo_VIK DAS 2.jpeg'), 'ipm - III'],
-  [3, 45955.5, 45955.6, 'a@x.edu', 'ASHA RAO 1', null, 'Asha Rao', '25F101', '9000000001', 'RIGHT HAND BATSMAN', 'RIGHT HAND\u00a0', 'OFF SPIN', 'NO', 'ALLROUNDER', link('IMG_2_ASHA RAO 1.png'), 'MBA 2'],
-  [4, 45955.7, 45955.8, 'c@x.edu', 'C 3', null, 'Ravi Kumar', '251600123', '9000000003', 'RIGHT HAND BATSMAN', 'RIGHT HAND\u00a0', 'PACE', 'NO', 'BOWLER', link('scan_C 3.pdf'), null],
+  [1, 45955.1, 45955.2, 'a@x.edu', 'ASHA RAO 1', null, '  asha   RAO ', '25f101', '9000000001', 'RIGHT HAND BATSMAN', 'RIGHT HAND\u00a0', 'PACE', 'NO', 'BATSMAN', link('IMG_1_ASHA RAO 1.jpg'), 'MBA 1', 'Male'],
+  [2, 45955.3, 45955.4, 'b@x.edu', 'VIK DAS 2', null, 'Vik Das', '24U12', '9000000002', 'LEFT HAND BATSMAN', 'LEFT HAND\u00a0', 'LEG SPIN', 'YES', 'ALLROUNDER', link('Photo_VIK DAS 2.jpeg'), 'ipm - III', 'Male'],
+  [3, 45955.5, 45955.6, 'a@x.edu', 'ASHA RAO 1', null, 'Asha Rao', '25F101', '9000000001', 'RIGHT HAND BATSMAN', 'RIGHT HAND\u00a0', 'OFF SPIN', 'NO', 'ALLROUNDER', link('IMG_2_ASHA RAO 1.png'), 'MBA 2', 'Male'],
+  [4, 45955.7, 45955.8, 'c@x.edu', 'C 3', null, 'Ravi Kumar', '251600123', '9000000003', 'RIGHT HAND BATSMAN', 'RIGHT HAND\u00a0', 'PACE', 'NO', 'BOWLER', link('scan_C 3.pdf'), null, 'Male'],
+  [5, 45955.9, 45956.0, 'd@x.edu', 'MEERA 4', null, 'Meera Iyer', '26F200', '9000000004', 'RIGHT HAND BATSMAN', 'RIGHT HAND', 'PACE', 'NO', 'BOWLER', link('IMG_MEERA.jpg'), 'MBA 1', 'Female'],
 ]
 
 async function buildFormsXlsx(rows: Cell[][]): Promise<Uint8Array> {
@@ -103,6 +105,7 @@ describe('column detection', () => {
       role: 13,
       photo: 14,
       batch: 15,
+      gender: 16,
     })
   })
 })
@@ -144,7 +147,7 @@ describe('parseRegistrationRows', () => {
   const sheet = parseRegistrationRows(ROWS)
 
   it('keeps only the latest response per roll number', () => {
-    expect(sheet.totalRows).toBe(4)
+    expect(sheet.totalRows).toBe(5)
     expect(sheet.duplicatesRemoved).toBe(1)
     const asha = sheet.players.find((p) => p.roll_no === '25F101')!
     expect(asha.role).toBe('All-rounder')
@@ -166,6 +169,12 @@ describe('parseRegistrationRows', () => {
     expect(ravi.issues.map((i) => i.text)).toEqual(
       expect.arrayContaining([expect.stringContaining('looks unusual'), 'Uploaded photo is not an image file']),
     )
+  })
+
+  it('leaves women out of the men-only auction', () => {
+    expect(sheet.womenExcluded).toBe(1)
+    expect(sheet.players.map((p) => p.name)).not.toContain('Meera Iyer')
+    expect(sheet.players).toHaveLength(3)
   })
 
   it('never carries contact details into player records', () => {

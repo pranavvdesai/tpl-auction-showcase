@@ -1,25 +1,22 @@
-// Browser-side photo preparation: square crop biased towards the face, small WebP.
+// Browser-side photo preparation: the whole photo, never cropped, scaled down to a small WebP.
 
-export const PHOTO_SIZE = 640
+export const PHOTO_MAX_SIDE = 1200
 
-export async function toSquarePhoto(source: Blob, size = PHOTO_SIZE): Promise<Blob> {
+export async function preparePhoto(source: Blob, maxSide = PHOTO_MAX_SIDE): Promise<Blob> {
   let bitmap: ImageBitmap
   try {
     bitmap = await createImageBitmap(source, { imageOrientation: 'from-image' })
   } catch {
     throw new Error('This browser cannot read the photo (HEIC or damaged file).')
   }
-  const side = Math.min(bitmap.width, bitmap.height)
-  const sx = (bitmap.width - side) / 2
-  const sy = (bitmap.height - side) * 0.3
-  const out = Math.min(size, side)
+  const scale = Math.min(1, maxSide / Math.max(bitmap.width, bitmap.height))
   const canvas = document.createElement('canvas')
-  canvas.width = out
-  canvas.height = out
+  canvas.width = Math.round(bitmap.width * scale)
+  canvas.height = Math.round(bitmap.height * scale)
   const ctx = canvas.getContext('2d')
   if (!ctx) throw new Error('Canvas is not available in this browser.')
   ctx.imageSmoothingQuality = 'high'
-  ctx.drawImage(bitmap, sx, sy, side, side, 0, 0, out, out)
+  ctx.drawImage(bitmap, 0, 0, canvas.width, canvas.height)
   bitmap.close()
 
   const encode = (type: string, quality: number) =>

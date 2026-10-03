@@ -1784,6 +1784,7 @@ select:focus {
   height: 40px;
   border-radius: 50%;
   object-fit: cover;
+  object-position: 50% 20%;
   background: var(--panel-2);
   border: 1px solid var(--line);
 }
@@ -1844,6 +1845,12 @@ select:focus {
   box-shadow: 0 0 6vh color-mix(in srgb, var(--team) 45%, transparent);
   font-size: min(16vh, 9vw);
   transition: border-color 0.3s, box-shadow 0.3s;
+}
+
+img.avatar-proj {
+  width: auto;
+  max-width: 40vw;
+  object-fit: contain;
 }
 
 .avatar-top {

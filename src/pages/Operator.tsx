@@ -228,7 +228,7 @@ function PlayerPool({ data }: { data: AuctionData }) {
       if (!inGroup(p, group)) return false
       if (filter === 'open' && p.status === 'sold') return false
       if (filter !== 'open' && filter !== 'all' && p.status !== filter) return false
-      if (q && !`${p.name} ${p.roll_no} ${p.role} ${p.lot_no}`.toLowerCase().includes(q)) return false
+      if (q && !`${p.name} ${p.roll_no} ${p.role} ${p.draw_no ?? ''}`.toLowerCase().includes(q)) return false
       return true
     })
   }, [data.players, query, group, filter])
@@ -280,7 +280,7 @@ function PlayerPool({ data }: { data: AuctionData }) {
         {visible.map((p) => (
           <li key={p.id} className={`pool-item status-${p.status} ${p.id === data.state.current_player_id ? 'current' : ''}`}>
             <div className="pool-main">
-              <span className="lot">#{p.lot_no}</span>
+              <span className="lot">{p.draw_no ? `#${p.draw_no}` : ''}</span>
               <PlayerPhoto name={p.name} src={p.photo_url} className="avatar-sm" />
               <div>
                 <div className="pool-name">{p.name}</div>
@@ -362,7 +362,8 @@ function LivePanel({ data, busy, run }: PanelProps) {
         <PlayerPhoto name={player.name} src={player.photo_url} className="avatar-live" />
         <div className="live-info">
           <div className="muted small">
-            Lot #{player.lot_no} · {player.roll_no}
+            {player.draw_no ? `Player No. ${player.draw_no} · ` : ''}
+            {player.roll_no}
             {player.batch ? ` · ${player.batch}` : ''}
           </div>
           <h2 className="live-name">{player.name}</h2>
@@ -529,7 +530,7 @@ function ResultsPanel({ data, busy, run }: PanelProps) {
               const team = p.team_id ? teamsById.get(p.team_id) : undefined
               return (
                 <tr key={p.id}>
-                  <td>#{p.lot_no}</td>
+                  <td>{p.draw_no ? `#${p.draw_no}` : ''}</td>
                   <td>
                     <span className="name-with-avatar">
                       <PlayerPhoto name={p.name} src={p.photo_url} className="avatar-xs" />

@@ -70,7 +70,7 @@ export function DrawReveal({ player }: { player: Player }) {
   }, [maxSize, player.name])
 
   return (
-    <div className="draw-reveal" role="img" aria-label={`Drawing lot ${player.lot_no}: ${player.name}`}>
+    <div className="draw-reveal" role="img" aria-label={`Drawing player ${player.draw_no ?? ''}: ${player.name}`}>
       <svg viewBox="0 0 800 600" preserveAspectRatio="xMidYMid meet">
         <SceneDefs />
 
@@ -113,7 +113,8 @@ export function DrawReveal({ player }: { player: Player }) {
         </g>
 
         <text x="400" y="420" textAnchor="middle" className="draw-caption">
-          LOT #{player.lot_no} · {roleLabel(player.role).toUpperCase()}
+          {player.draw_no ? `PLAYER NO. ${player.draw_no} · ` : ''}
+          {roleLabel(player.role).toUpperCase()}
         </text>
       </svg>
     </div>

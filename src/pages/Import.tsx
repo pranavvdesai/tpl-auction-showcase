@@ -14,7 +14,7 @@ import {
   type ParsedPlayer,
 } from '../lib/importer'
 import { roleLabel } from '../lib/format'
-import { photoPath, toSquarePhoto } from '../lib/photos'
+import { photoPath, preparePhoto } from '../lib/photos'
 import { errorMessage, supabase } from '../lib/supabase'
 import { useAuction } from '../lib/useAuction'
 import { readXlsxRows, type Cell } from '../lib/xlsx'
@@ -100,7 +100,7 @@ function Importer({ email }: { email: string }) {
         if (!source || cancelled) return
         let entry: Prepared
         try {
-          const blob = await toSquarePhoto(await source.load())
+          const blob = await preparePhoto(await source.load())
           entry = { blob, url: URL.createObjectURL(blob) }
         } catch (e) {
           entry = { error: errorMessage(e) }
@@ -295,6 +295,8 @@ function Importer({ email }: { email: string }) {
                     {' '}
                     · {sheet.totalRows} responses · {sheet.players.length} unique players
                     {sheet.duplicatesRemoved > 0 && ` · ${sheet.duplicatesRemoved} repeat registrations merged`}
+                    {sheet.womenExcluded > 0 &&
+                      ` · ${sheet.womenExcluded} ${sheet.womenExcluded === 1 ? 'woman' : 'women'} left out (men-only auction)`}
                   </>
                 )}
               </p>
