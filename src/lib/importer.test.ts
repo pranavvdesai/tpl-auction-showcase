@@ -1,6 +1,16 @@
 import JSZip from 'jszip'
 import { describe, expect, it } from 'vitest'
-import { detectColumns, mapBowling, mapRole, matchPhotos, parseRegistrationRows, photoFileFromLink, titleCase } from './importer'
+import {
+  classFromRoll,
+  detectColumns,
+  mapBowling,
+  mapRole,
+  matchPhotos,
+  normalizeClass,
+  parseRegistrationRows,
+  photoFileFromLink,
+  titleCase,
+} from './importer'
 import { readXlsxRows, type Cell } from './xlsx'
 
 const HEADERS = [
@@ -19,6 +29,7 @@ const HEADERS = [
   'WICKETKEEPING',
   '"WHAT IS YOUR PRIMARY ROLE IN TEAM"?"\n',
   'HD PHOTOGRAPH',
+  'Year',
 ]
 
 const link = (file: string) =>
@@ -27,10 +38,10 @@ const link = (file: string) =>
 // Fictional rows shaped like a real Microsoft Forms export.
 const ROWS: Cell[][] = [
   HEADERS,
-  [1, 45955.1, 45955.2, 'a@x.edu', 'ASHA RAO 1', null, '  asha   RAO ', '25f101', '9000000001', 'RIGHT HAND BATSMAN', 'RIGHT HAND\u00a0', 'PACE', 'NO', 'BATSMAN', link('IMG_1_ASHA RAO 1.jpg')],
-  [2, 45955.3, 45955.4, 'b@x.edu', 'VIK DAS 2', null, 'Vik Das', '24B12', '9000000002', 'LEFT HAND BATSMAN', 'LEFT HAND\u00a0', 'LEG SPIN', 'YES', 'ALLROUNDER', link('Photo_VIK DAS 2.jpeg')],
-  [3, 45955.5, 45955.6, 'a@x.edu', 'ASHA RAO 1', null, 'Asha Rao', '25F101', '9000000001', 'RIGHT HAND BATSMAN', 'RIGHT HAND\u00a0', 'OFF SPIN', 'NO', 'ALLROUNDER', link('IMG_2_ASHA RAO 1.png')],
-  [4, 45955.7, 45955.8, 'c@x.edu', 'C 3', null, 'Ravi Kumar', '251600123', '9000000003', 'RIGHT HAND BATSMAN', 'RIGHT HAND\u00a0', 'PACE', 'NO', 'BOWLER', link('scan_C 3.pdf')],
+  [1, 45955.1, 45955.2, 'a@x.edu', 'ASHA RAO 1', null, '  asha   RAO ', '25f101', '9000000001', 'RIGHT HAND BATSMAN', 'RIGHT HAND\u00a0', 'PACE', 'NO', 'BATSMAN', link('IMG_1_ASHA RAO 1.jpg'), 'MBA 1'],
+  [2, 45955.3, 45955.4, 'b@x.edu', 'VIK DAS 2', null, 'Vik Das', '24U12', '9000000002', 'LEFT HAND BATSMAN', 'LEFT HAND\u00a0', 'LEG SPIN', 'YES', 'ALLROUNDER', link('Photo_VIK DAS 2.jpeg'), 'ipm - III'],
+  [3, 45955.5, 45955.6, 'a@x.edu', 'ASHA RAO 1', null, 'Asha Rao', '25F101', '9000000001', 'RIGHT HAND BATSMAN', 'RIGHT HAND\u00a0', 'OFF SPIN', 'NO', 'ALLROUNDER', link('IMG_2_ASHA RAO 1.png'), 'MBA 2'],
+  [4, 45955.7, 45955.8, 'c@x.edu', 'C 3', null, 'Ravi Kumar', '251600123', '9000000003', 'RIGHT HAND BATSMAN', 'RIGHT HAND\u00a0', 'PACE', 'NO', 'BOWLER', link('scan_C 3.pdf'), null],
 ]
 
 async function buildFormsXlsx(rows: Cell[][]): Promise<Uint8Array> {
@@ -91,6 +102,7 @@ describe('column detection', () => {
       wicketkeeping: 12,
       role: 13,
       photo: 14,
+      batch: 15,
     })
   })
 })
@@ -106,6 +118,25 @@ describe('value mapping', () => {
     expect(mapBowling('LEFT HAND\u00a0', 'LEG SPIN')).toBe('Left-arm leg-spin')
     expect(mapBowling('RIGHT HAND', 'PACE')).toBe('Right-arm pace')
     expect(photoFileFromLink(link('IMG_1_ASHA RAO 1.jpg'))).toBe('IMG_1_ASHA RAO 1.jpg')
+  })
+
+  it('reads the class column in any common spelling', () => {
+    expect(normalizeClass('MBA 1')).toBe('MBA 1')
+    expect(normalizeClass(' ipm-3 ')).toBe('IPM 3')
+    expect(normalizeClass('IPM II')).toBe('IPM 2')
+    expect(normalizeClass('Second year MBA')).toBe('MBA 2')
+    expect(normalizeClass('PhD')).toBe('PhD')
+    expect(normalizeClass('  ')).toBeNull()
+  })
+
+  it('works out the class from the roll number when the sheet has none', () => {
+    const oct2026 = new Date(2026, 9, 3)
+    expect(classFromRoll('26F243', oct2026)).toBe('MBA 1')
+    expect(classFromRoll('25M150', oct2026)).toBe('MBA 2')
+    expect(classFromRoll('26U37', oct2026)).toBe('IPM 1')
+    expect(classFromRoll('24U44', oct2026)).toBe('IPM 3')
+    expect(classFromRoll('24F101', oct2026)).toBeNull()
+    expect(classFromRoll('26F243', new Date(2026, 2, 1))).toBeNull()
   })
 })
 
@@ -123,10 +154,10 @@ describe('parseRegistrationRows', () => {
   })
 
   it('fills player fields and flags problems without failing the import', () => {
-    const vik = sheet.players.find((p) => p.roll_no === '24B12')!
+    const vik = sheet.players.find((p) => p.roll_no === '24U12')!
     expect(vik).toMatchObject({
       name: 'Vik Das',
-      batch: 'MBA 1',
+      batch: 'IPM 3',
       batting_style: 'Left-hand bat',
       bowling_style: 'Left-arm leg-spin',
       is_wicketkeeper: true,

@@ -6,6 +6,7 @@ import type { Role } from './types'
 export type FieldKey =
   | 'name'
   | 'roll_no'
+  | 'batch'
   | 'role'
   | 'batting'
   | 'bowling_hand'
@@ -19,6 +20,7 @@ export type ColumnMap = Record<FieldKey, number | null>
 export const FIELD_LABELS: Record<FieldKey, string> = {
   name: 'Player name',
   roll_no: 'Roll number',
+  batch: 'Class (MBA / IPM year)',
   role: 'Primary role',
   batting: 'Batting hand',
   bowling_hand: 'Bowling hand',
@@ -37,6 +39,7 @@ const DETECTORS: Array<[FieldKey, (h: string) => boolean]> = [
   ['submitted_at', (h) => h === 'COMPLETION TIME'],
   ['photo', (h) => /PHOTO|PICTURE|IMAGE|SELFIE|\bPIC\b/.test(h)],
   ['roll_no', (h) => /ROLL|REG(ISTRATION)? ?NO/.test(h)],
+  ['batch', (h) => /\bYEAR\b|\bCLASS\b|BATCH|PROGRAM|COURSE/.test(h)],
   ['wicketkeeping', (h) => /WICKET ?KEEP|KEEPING|\bWK\b/.test(h)],
   ['bowling_hand', (h) => /BOWL/.test(h) && /HAND|ARM/.test(h)],
   ['bowling_type', (h) => /BOWL/.test(h) && /TYPE|STYLE|KIND/.test(h)],
@@ -145,12 +148,32 @@ export function photoFileFromLink(value: Cell): string | null {
   }
 }
 
-// The roll number starts with the intake year: 2025 intake is MBA 2, 2024 intake is MBA 1.
-// Keep in sync with supabase/migrations/20260929160000_mba_year.sql.
-const MBA_BY_INTAKE: Record<string, string> = { '25': 'MBA 2', '24': 'MBA 1' }
+const ROMAN: Record<string, number> = { I: 1, II: 2, III: 3, IV: 4, V: 5 }
+const ORDINAL_WORDS: Record<string, number> = { FIRST: 1, SECOND: 2, THIRD: 3, FOURTH: 4, FIFTH: 5 }
 
-export function mbaYear(rollNo: string): string | null {
-  return MBA_BY_INTAKE[rollNo.slice(0, 2)] ?? null
+export function normalizeClass(value: Cell): string | null {
+  const raw = clean(value)
+  if (!raw) return null
+  const v = raw.toUpperCase()
+  const programme = /IPM/.test(v) ? 'IPM' : /MBA|PGDM/.test(v) ? 'MBA' : null
+  const digit = v.match(/\d/)?.[0]
+  const words = v.split(/[^A-Z]+/)
+  const n = digit
+    ? Number(digit)
+    : (words.map((w) => ROMAN[w] ?? ORDINAL_WORDS[w]).find((x) => x != null) ?? null)
+  return programme && n ? `${programme} ${n}` : raw
+}
+
+// Fallback when the sheet has no class column. Roll numbers start with the intake year
+// (26F243 joined in 2026); "U" after the year marks IPM, anything else is MBA.
+export function classFromRoll(rollNo: string, now = new Date()): string | null {
+  const m = rollNo.match(/^(\d{2})([A-Z])/)
+  if (!m) return null
+  const latestIntake = (now.getFullYear() % 100) - (now.getMonth() < 6 ? 1 : 0)
+  const year = latestIntake - Number(m[1]) + 1
+  const ipm = m[2] === 'U'
+  if (year < 1 || year > (ipm ? 5 : 2)) return null
+  return `${ipm ? 'IPM' : 'MBA'} ${year}`
 }
 
 const IMAGE_EXT = /\.(jpe?g|png|webp|gif|bmp)$/i
@@ -179,7 +202,7 @@ export function normalizeRow(cells: Cell[], map: ColumnMap, rowNumber: number): 
     rowNumber,
     name,
     roll_no,
-    batch: mbaYear(roll_no),
+    batch: normalizeClass(get('batch')) ?? classFromRoll(roll_no),
     role,
     batting_style: hand(get('batting')) ? `${hand(get('batting'))}-hand bat` : null,
     bowling_style: mapBowling(get('bowling_hand'), get('bowling_type')),
