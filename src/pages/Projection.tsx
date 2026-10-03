@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { DrawReveal, LotOrderReveal, useReveals } from '../components/DrawReveal'
 import { PlayerPhoto } from '../components/PlayerPhoto'
 import { currentLot, lotLabel } from '../lib/draw'
-import { pts, roleLabel } from '../lib/format'
+import { battingLabel, bowlingLabel, pts, roleLabel } from '../lib/format'
 import type { AuctionData, AuctionState, Lot, Player, TeamStanding } from '../lib/types'
 import { useAuction } from '../lib/useAuction'
 import { useAutoReload } from '../lib/useAutoReload'
@@ -164,11 +164,15 @@ function Stage({ data }: { data: AuctionData }) {
           </>
         ) : (
           <>
-            <div className="proj-bid-label">Base price</div>
-            <div className="proj-bid-amount">
-              {pts(player.base_price)}
-              <span>pts</span>
-            </div>
+            <div className="proj-bid-label">Player profile</div>
+            <dl className="proj-profile">
+              <dt>Batting</dt>
+              <dd>{battingLabel(player.batting_style) ?? 'Not given'}</dd>
+              <dt>Bowling</dt>
+              <dd>{bowlingLabel(player.bowling_style) ?? "Doesn't bowl"}</dd>
+              <dt>Wicketkeeping</dt>
+              <dd>{player.is_wicketkeeper ? 'Yes' : 'No'}</dd>
+            </dl>
             <div className={`proj-bid-team ${state.status === 'live' ? 'bidding' : ''}`}>
               {state.status === 'live' ? 'Bidding in progress' : state.status === 'unsold' ? 'Unsold' : '—'}
             </div>
@@ -185,6 +189,9 @@ function Stage({ data }: { data: AuctionData }) {
         <div className="proj-role">
           {roleLabel(player.role)}
           {player.batch && <span className="proj-mba">{player.batch}</span>}
+        </div>
+        <div className="proj-base">
+          Base price <strong>{pts(player.base_price)}</strong> pts
         </div>
 
         {state.status === 'sold' && buyer && (
