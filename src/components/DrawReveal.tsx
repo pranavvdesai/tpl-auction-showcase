@@ -4,7 +4,7 @@ import { roleLabel } from '../lib/format'
 import type { AuctionState, Lot, Player } from '../lib/types'
 
 /** Must match the .draw-* keyframes in styles.css. */
-export const DRAW_MS = 3200
+export const DRAW_MS = 4200
 /** Arrow lot draw timeline, in ms from the moment the reveal mounts. */
 const SPIN_1_MS = 4800
 const SPIN_2_MS = 3800

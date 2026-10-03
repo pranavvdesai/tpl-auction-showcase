@@ -1307,7 +1307,7 @@ select:focus {
 
 .draw-reveal g {
   transform-box: view-box;
-  animation-duration: 3.2s;
+  animation-duration: 4.2s;
   animation-fill-mode: both;
   animation-timing-function: ease-in-out;
 }
@@ -1353,7 +1353,7 @@ select:focus {
   font-weight: 800;
   letter-spacing: 0.2em;
   fill: var(--accent);
-  animation: draw-caption 3.2s ease-out both;
+  animation: draw-caption 4.2s ease-out both;
 }
 
 @keyframes draw-bag {

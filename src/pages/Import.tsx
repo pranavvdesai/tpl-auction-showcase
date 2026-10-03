@@ -54,7 +54,7 @@ function Importer({ email }: { email: string }) {
   const [preparing, setPreparing] = useState<{ done: number; total: number } | null>(null)
 
   const [basePrice, setBasePrice] = useState('')
-  const [replace, setReplace] = useState(false)
+  const [replaceWanted, setReplace] = useState(true)
   const [onlyIssues, setOnlyIssues] = useState(false)
   const [loading, setLoading] = useState<string | null>(null)
   const [importing, setImporting] = useState<string | null>(null)
@@ -177,6 +177,7 @@ function Importer({ email }: { email: string }) {
   }
 
   const soldCount = data?.players.filter((p) => p.status === 'sold').length ?? 0
+  const replace = replaceWanted && soldCount === 0
   const base = Number(basePrice)
   const baseValid = Number.isInteger(base) && base > 0
   const canImport =
@@ -353,7 +354,16 @@ function Importer({ email }: { email: string }) {
                     {soldCount > 0 && <span className="muted"> — reset the auction first, {soldCount} already sold</span>}
                   </span>
                 </label>
-                {!replace && <p className="muted small">Otherwise players are added, and anyone with the same roll number is updated.</p>}
+                {replace ? (
+                  <p className="muted small">
+                    The pool becomes exactly the players in this sheet. Use this for each new form export, since it already
+                    contains everyone who registered so far.
+                  </p>
+                ) : (
+                  <p className="muted small">
+                    Players are added, and anyone with the same roll number is updated. Nobody already in the pool is removed.
+                  </p>
+                )}
               </>
             )}
             <button className="btn sold block" disabled={!canImport} onClick={() => void runImport()}>
