@@ -461,6 +461,49 @@ select:focus {
   opacity: 0.5;
 }
 
+.lot-picker {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+}
+
+.lot-pick {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  border: 1px solid var(--line);
+  background: transparent;
+  color: inherit;
+  border-radius: 10px;
+  padding: 10px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.lot-pick span {
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: var(--line);
+  font-size: 13px;
+}
+
+.lot-pick.picked {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.lot-pick.picked span {
+  background: var(--accent);
+  color: #0f172a;
+}
+
+.lot-pick:disabled {
+  cursor: default;
+}
+
 .chips {
   display: flex;
   gap: 6px;
@@ -1438,6 +1481,19 @@ select:focus {
   stroke: #475569;
   stroke-width: 2;
   stroke-dasharray: 8 6;
+  transition: fill 0.4s, stroke 0.4s;
+}
+
+.lot-slot-group.filled .lot-slot {
+  fill: #fbbf24;
+  stroke: #fde68a;
+  stroke-dasharray: none;
+}
+
+.lot-slot-group.filled {
+  animation: lot-slot-pop 0.5s ease-out both;
+  transform-origin: center;
+  transform-box: fill-box;
 }
 
 .lot-slot-label {
@@ -1447,74 +1503,90 @@ select:focus {
   fill: #94a3b8;
 }
 
-.lot-ticket-text {
-  font-size: 24px;
+.lot-slot-q {
+  font-size: 30px;
   font-weight: 900;
-  letter-spacing: 0.08em;
+  fill: #475569;
+}
+
+.lot-slot-name {
+  font-size: 22px;
+  font-weight: 900;
+  letter-spacing: 0.06em;
   fill: #7f1d1d;
 }
 
-.lot-bag-fade {
-  animation: lot-bag-fade 7.2s ease-in-out both;
+/* Arrow lot draw. Timings live in DrawReveal.tsx (LOT_ORDER_MS). */
+.wheel-rim {
+  fill: #0f172a;
+  stroke: #fbbf24;
+  stroke-width: 6;
 }
 
-.lot-bag-wobble {
-  transform-origin: 400px 550px;
-  animation: lot-wobble 2s ease-in-out 0.3s 3 both;
+.wheel-sector path {
+  stroke: #0f172a;
+  stroke-width: 4;
+  transition: opacity 0.4s, filter 0.4s;
 }
 
-.lot-hand {
-  animation: lot-hand 2s ease-in-out 0.3s 3 both;
+.wheel-sector.taken path {
+  opacity: 0.35;
 }
 
-.lot-ticket-in {
-  transform-origin: 400px 410px;
-  animation: lot-ticket-in 2s ease-in-out both;
+.wheel-sector.won path {
+  opacity: 1;
+  animation: wheel-won 0.7s ease-in-out 3;
 }
 
-.lot-ticket-hero {
-  transform-origin: 400px 410px;
-  animation: lot-ticket-hero 2s ease-in-out both;
+.wheel-label {
+  font-size: 22px;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  fill: #fff;
+  paint-order: stroke;
+  stroke: rgba(0, 0, 0, 0.35);
+  stroke-width: 3px;
 }
 
-@keyframes lot-bag-fade {
-  0% { opacity: 0; }
-  4%, 88% { opacity: 1; }
-  95%, 100% { opacity: 0; }
+.wheel-badge {
+  font-size: 15px;
+  font-weight: 900;
+  letter-spacing: 0.2em;
+  fill: #fde68a;
 }
 
-@keyframes lot-wobble {
-  0%, 34% { transform: rotate(0deg); }
-  38% { transform: rotate(-3deg); }
-  42% { transform: rotate(3deg); }
-  46% { transform: rotate(-2deg); }
-  50%, 100% { transform: rotate(0deg); }
+.wheel-peg {
+  fill: #fde68a;
+  stroke: #b45309;
+  stroke-width: 2;
 }
 
-@keyframes lot-hand {
-  0% { transform: translate(0, -560px); }
-  30% { transform: translate(0, 0); }
-  36% { transform: translate(-10px, 0); }
-  42% { transform: translate(10px, 0); }
-  48% { transform: translate(0, 0); }
-  72% { transform: translate(0, -250px); }
-  100% { transform: translate(0, -640px); }
+.wheel-arrow {
+  fill: #fbbf24;
+  stroke: #fff7ed;
+  stroke-width: 3;
+  stroke-linejoin: round;
 }
 
-@keyframes lot-ticket-in {
-  0%, 29.9% { opacity: 0; transform: translate(0, 0) scale(0.55); }
-  30% { opacity: 1; transform: translate(0, 0) scale(0.55); }
-  36% { transform: translate(-10px, 0) scale(0.55); }
-  42% { transform: translate(10px, 0) scale(0.55); }
-  48% { transform: translate(0, 0) scale(0.55); }
-  72% { opacity: 1; transform: translate(0, -250px) scale(0.55); }
-  72.1%, 100% { opacity: 0; transform: translate(0, -250px) scale(0.55); }
+.wheel-hub {
+  fill: #fbbf24;
+  stroke: #fff7ed;
+  stroke-width: 4;
 }
 
-@keyframes lot-ticket-hero {
-  0%, 71.9% { opacity: 0; transform: translate(0, -250px) scale(0.55); }
-  72% { opacity: 1; transform: translate(0, -250px) scale(0.55); }
-  95%, 100% { opacity: 1; transform: translate(var(--tx), var(--ty)) scale(1); }
+.wheel-hub-dot {
+  fill: #7f1d1d;
+}
+
+@keyframes wheel-won {
+  0%, 100% { filter: brightness(1); }
+  50% { filter: brightness(1.6) drop-shadow(0 0 12px #fde68a); }
+}
+
+@keyframes lot-slot-pop {
+  0% { transform: scale(0.8); }
+  60% { transform: scale(1.08); }
+  100% { transform: scale(1); }
 }
 
 /* Lot order and phase boards shown between players */

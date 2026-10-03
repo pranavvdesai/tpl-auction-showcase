@@ -1,17 +1,20 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
-import { drawKey, lotLabel, lotOrderKey, shouldDraw, splitName } from '../lib/draw'
+import { WHEEL_ANGLES, drawKey, landingAngle, lotLabel, lotOrderKey, shouldDraw, splitName } from '../lib/draw'
 import { roleLabel } from '../lib/format'
 import type { AuctionState, Lot, Player } from '../lib/types'
 
 /** Must match the .draw-* keyframes in styles.css. */
 export const DRAW_MS = 3200
-/** Must match the .lot-* keyframes in styles.css: three 2 s draws after a 0.3 s lead-in, then a short hold. */
-export const LOT_ORDER_MS = 7200
+/** Arrow lot draw timeline, in ms from the moment the reveal mounts. */
+const SPIN_1_MS = 4800
+const SPIN_2_MS = 3800
+const LAND_HOLD_MS = 1600
+const SPIN_1_START = 150
+const SPIN_2_START = SPIN_1_START + SPIN_1_MS + LAND_HOLD_MS
+const FINAL_AT = SPIN_2_START + SPIN_2_MS + LAND_HOLD_MS
+export const LOT_ORDER_MS = FINAL_AT + 2600
 /** Usable length of the bat blade, in SVG units, for the autograph. */
 const BLADE_TEXT_LENGTH = 116
-const SLOT_X = [150, 400, 650]
-const SLOT_Y = 528
-const TICKET_Y = 410
 
 function useOneShot(key: string | null, loaded: boolean, duration: number) {
   const [active, setActive] = useState<string | null>(null)
@@ -118,67 +121,126 @@ export function DrawReveal({ player }: { player: Player }) {
 }
 
 const ORDINALS = ['1ST', '2ND', '3RD']
-const BAG_SCALE = 'translate(400 300) scale(0.8) translate(-400 -300)'
+/** Fixed wheel layout, so the wheel itself gives nothing away about the order. */
+const WHEEL: Array<{ lot: Lot; angle: number; color: string }> = [
+  { lot: 'Batter', angle: WHEEL_ANGLES.Batter, color: '#1d4ed8' },
+  { lot: 'Bowler', angle: WHEEL_ANGLES.Bowler, color: '#b91c1c' },
+  { lot: 'All-rounder', angle: WHEEL_ANGLES['All-rounder'], color: '#15803d' },
+]
+const CX = 400
+const CY = 262
+const R = 196
+const SLOT_X = [170, 400, 630]
+
+function polar(angle: number, radius: number) {
+  const rad = (angle * Math.PI) / 180
+  return { x: CX + radius * Math.sin(rad), y: CY - radius * Math.cos(rad) }
+}
+
+function sectorPath(center: number) {
+  const a = polar(center - 60, R)
+  const b = polar(center + 60, R)
+  return `M${CX} ${CY} L${a.x} ${a.y} A${R} ${R} 0 0 1 ${b.x} ${b.y} Z`
+}
+
+type Step = 'idle' | 'spin1' | 'land1' | 'spin2' | 'land2' | 'final'
 
 export function LotOrderReveal({ order }: { order: Lot[] }) {
+  const [step, setStep] = useState<Step>('idle')
+  const [angles] = useState(() => {
+    const first = landingAngle(0, order[0], 6)
+    return { first, second: landingAngle(first, order[1], 5) }
+  })
+
+  useEffect(() => {
+    const at = (ms: number, next: Step) => window.setTimeout(() => setStep(next), ms)
+    const timers = [
+      at(SPIN_1_START, 'spin1'),
+      at(SPIN_1_START + SPIN_1_MS, 'land1'),
+      at(SPIN_2_START, 'spin2'),
+      at(SPIN_2_START + SPIN_2_MS, 'land2'),
+      at(FINAL_AT, 'final'),
+    ]
+    return () => timers.forEach((t) => window.clearTimeout(t))
+  }, [])
+
+  const steps: Step[] = ['idle', 'spin1', 'land1', 'spin2', 'land2', 'final']
+  const reached = (s: Step) => steps.indexOf(step) >= steps.indexOf(s)
+  const revealed = reached('final') ? 3 : reached('land2') ? 2 : reached('land1') ? 1 : 0
+  const rotation = reached('spin2') ? angles.second : reached('spin1') ? angles.first : 0
+  const spinMs = step === 'spin1' ? SPIN_1_MS : step === 'spin2' ? SPIN_2_MS : 0
+  const justLanded = step === 'land1' ? order[0] : step === 'land2' ? order[1] : step === 'final' ? order[2] : null
+
   return (
     <div className="lot-reveal" role="img" aria-label={`Drawing the lot order: ${order.map((l) => lotLabel(l)).join(', ')}`}>
       <svg viewBox="0 0 800 600" preserveAspectRatio="xMidYMid meet">
-        <SceneDefs />
+        <defs>
+          <radialGradient id="wheel-shine" cx="50%" cy="35%" r="70%">
+            <stop offset="0%" stopColor="#fff" stopOpacity="0.22" />
+            <stop offset="100%" stopColor="#fff" stopOpacity="0" />
+          </radialGradient>
+          <filter id="arrow-shadow" x="-50%" y="-50%" width="200%" height="200%">
+            <feDropShadow dx="0" dy="4" stdDeviation="4" floodColor="#000" floodOpacity="0.55" />
+          </filter>
+        </defs>
 
-        <text x="400" y="44" textAnchor="middle" className="lot-reveal-title">
-          DRAWING THE LOT ORDER
+        <text x="400" y="34" textAnchor="middle" className="lot-reveal-title">
+          {step === 'final' ? 'THE LOT ORDER' : 'DRAWING THE LOT ORDER'}
         </text>
-        {SLOT_X.map((x, i) => (
-          <g key={x}>
-            <rect x={x - 100} y={SLOT_Y - 36} width="200" height="72" rx="12" className="lot-slot" />
-            <text x={x} y="592" textAnchor="middle" className="lot-slot-label">
-              {ORDINALS[i]} LOT
-            </text>
-          </g>
-        ))}
 
-        <g className="lot-bag-fade">
-          <g transform={BAG_SCALE}>
-            <g className="lot-bag-wobble">
-              <BagBack />
+        <circle cx={CX} cy={CY} r={R + 14} className="wheel-rim" />
+        {WHEEL.map((w) => {
+          const n = order.indexOf(w.lot) + 1
+          const taken = n > 0 && n <= revealed
+          const label = polar(w.angle, R * 0.6)
+          return (
+            <g key={w.lot} className={`wheel-sector ${taken ? 'taken' : ''} ${justLanded === w.lot ? 'won' : ''}`}>
+              <path d={sectorPath(w.angle)} fill={w.color} />
+              <text x={label.x} y={label.y} textAnchor="middle" dominantBaseline="middle" className="wheel-label">
+                {lotLabel(w.lot).toUpperCase()}
+              </text>
+              {taken && (
+                <text x={label.x} y={label.y + 34} textAnchor="middle" dominantBaseline="middle" className="wheel-badge">
+                  {ORDINALS[n - 1]} LOT
+                </text>
+              )}
             </g>
-          </g>
+          )
+        })}
+        <circle cx={CX} cy={CY} r={R} fill="url(#wheel-shine)" pointerEvents="none" />
+        {WHEEL.map((w) => {
+          const p = polar(w.angle + 60, R + 7)
+          return <circle key={`peg-${w.lot}`} cx={p.x} cy={p.y} r="7" className="wheel-peg" />
+        })}
+
+        <g
+          className="wheel-arrow"
+          style={{
+            transform: `rotate(${rotation}deg)`,
+            transformOrigin: `${CX}px ${CY}px`,
+            transition: spinMs ? `transform ${spinMs}ms cubic-bezier(0.12, 0.72, 0.18, 1)` : 'none',
+          }}
+          filter="url(#arrow-shadow)"
+        >
+          <path d={`M${CX} ${CY - R + 18} L${CX + 22} ${CY - R + 66} L${CX + 9} ${CY - R + 66} L${CX + 9} ${CY + 28} L${CX - 9} ${CY + 28} L${CX - 9} ${CY - R + 66} L${CX - 22} ${CY - R + 66} Z`} />
         </g>
+        <circle cx={CX} cy={CY} r="26" className="wheel-hub" />
+        <circle cx={CX} cy={CY} r="9" className="wheel-hub-dot" />
 
-        {order.map((lot, i) => (
-          <g key={`in-${lot}`} className="lot-ticket-in" style={{ animationDelay: `${0.3 + 2 * i}s` }}>
-            <Ticket text={lotLabel(lot).toUpperCase()} />
-          </g>
-        ))}
-
-        <g mask="url(#draw-top-fade)">
-          <g className="lot-hand">
-            <Hand />
-          </g>
-        </g>
-
-        <g className="lot-bag-fade">
-          <g transform={BAG_SCALE}>
-            <g className="lot-bag-wobble">
-              <BagFront label="LOTS" />
+        {SLOT_X.map((x, i) => {
+          const lot = i < revealed ? order[i] : null
+          return (
+            <g key={x} className={`lot-slot-group ${lot ? 'filled' : ''}`}>
+              <rect x={x - 105} y="498" width="210" height="64" rx="12" className="lot-slot" />
+              <text x={x} y="531" textAnchor="middle" dominantBaseline="middle" className={lot ? 'lot-slot-name' : 'lot-slot-q'}>
+                {lot ? lotLabel(lot).toUpperCase() : '?'}
+              </text>
+              <text x={x} y="584" textAnchor="middle" className="lot-slot-label">
+                {ORDINALS[i]} LOT
+              </text>
             </g>
-          </g>
-        </g>
-
-        {order.map((lot, i) => (
-          <g
-            key={`out-${lot}`}
-            className="lot-ticket-hero"
-            style={{
-              animationDelay: `${0.3 + 2 * i}s`,
-              ['--tx' as string]: `${SLOT_X[i] - 400}px`,
-              ['--ty' as string]: `${SLOT_Y - TICKET_Y}px`,
-            }}
-          >
-            <Ticket text={lotLabel(lot).toUpperCase()} />
-          </g>
-        ))}
+          )
+        })}
       </svg>
     </div>
   )
@@ -281,22 +343,3 @@ function Bat() {
   )
 }
 
-function Ticket({ text }: { text: string }) {
-  return (
-    <>
-      <rect x="310" y={TICKET_Y - 28} width="180" height="56" rx="8" fill="#fbbf24" stroke="#fde68a" strokeWidth="3" />
-      <rect x="318" y={TICKET_Y - 20} width="164" height="40" rx="5" fill="none" stroke="#b45309" strokeWidth="1.5" strokeDasharray="4 3" />
-      <text
-        x="400"
-        y={TICKET_Y + 1}
-        textAnchor="middle"
-        dominantBaseline="middle"
-        className="lot-ticket-text"
-        textLength={text.length > 8 ? 146 : undefined}
-        lengthAdjust="spacingAndGlyphs"
-      >
-        {text}
-      </text>
-    </>
-  )
-}

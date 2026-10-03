@@ -3,10 +3,21 @@ import { DrawReveal, LotOrderReveal, useReveals } from '../components/DrawReveal
 import { PlayerPhoto } from '../components/PlayerPhoto'
 import { currentLot, lotLabel } from '../lib/draw'
 import { pts, roleLabel } from '../lib/format'
-import type { AuctionData, AuctionState, Player, TeamStanding } from '../lib/types'
+import type { AuctionData, AuctionState, Lot, Player, TeamStanding } from '../lib/types'
 import { useAuction } from '../lib/useAuction'
 
 type View = 'auto' | 'squads'
+
+const LOTS: Lot[] = ['Batter', 'Bowler', 'All-rounder']
+
+/** `?preview=lot-draw&order=Bowler,Batter,All-rounder` rehearses the arrow draw without touching the live auction. */
+function previewOrder(): Lot[] | null {
+  const params = new URLSearchParams(window.location.search)
+  if (params.get('preview') !== 'lot-draw') return null
+  const asked = (params.get('order') ?? '').split(',').filter((l): l is Lot => LOTS.includes(l as Lot))
+  if (new Set(asked).size === LOTS.length) return asked
+  return [...LOTS].sort(() => Math.random() - 0.5)
+}
 
 export default function Projection() {
   const { data, error, live } = useAuction('projection')
@@ -17,10 +28,13 @@ export default function Projection() {
   const { skip } = reveals
   const drawnPlayer = reveals.playerDraw ? data?.players.find((p) => p.id === data.state.current_player_id) : undefined
   const lotOrder = data?.state.lot_order
+  const [preview] = useState(previewOrder)
+  const [previewRun, setPreviewRun] = useState(0)
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'f' || e.key === 'F') toggleFullscreen()
+      if (e.key === 'r' || e.key === 'R') setPreviewRun((n) => n + 1)
       if (e.key === 't' || e.key === 'T') setView((v) => (v === 'squads' ? 'auto' : 'squads'))
       if (e.key === ' ') {
         e.preventDefault()
@@ -58,7 +72,9 @@ export default function Projection() {
       {data && (
         <>
           <section className="proj-stage">
-            {view === 'squads' ? (
+            {preview ? (
+              <LotOrderReveal key={previewRun} order={preview} />
+            ) : view === 'squads' ? (
               <SquadsBoard data={data} />
             ) : reveals.lotOrderDraw && lotOrder ? (
               <LotOrderReveal key={reveals.lotOrderDraw} order={lotOrder} />

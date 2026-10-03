@@ -49,6 +49,22 @@ export function remaining(players: PoolPlayer[], lot: Lot | null) {
   }
 }
 
+/** Centre of each lot's 120° sector on the projection wheel, clockwise from the top. */
+export const WHEEL_ANGLES: Record<Lot, number> = { Batter: 0, Bowler: 120, 'All-rounder': 240 }
+
+/** Arrow rotation that ends inside `lot`'s sector after at least `turns` full turns past `from`. */
+export function landingAngle(from: number, lot: Lot, turns: number, jitter = Math.random() - 0.5): number {
+  const target = WHEEL_ANGLES[lot] + jitter * 70
+  const start = from + turns * 360
+  return start + ((((target - start) % 360) + 360) % 360)
+}
+
+/** The lot whose sector the arrow points at, for a rotation in degrees. */
+export function lotAtAngle(deg: number): Lot {
+  const a = ((deg % 360) + 360) % 360
+  return a < 60 || a >= 300 ? 'Batter' : a < 180 ? 'Bowler' : 'All-rounder'
+}
+
 /** Long names go on two lines, split at the space that best balances the line lengths. */
 export function splitName(name: string): string[] {
   const words = name.trim().split(/\s+/)

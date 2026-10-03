@@ -1,5 +1,31 @@
 import { describe, expect, it } from 'vitest'
-import { currentLot, drawKey, inLot, lotLabel, lotOrderKey, remaining, shouldDraw, splitName } from './draw'
+import { currentLot, drawKey, inLot, landingAngle, lotAtAngle, lotLabel, lotOrderKey, remaining, shouldDraw, splitName } from './draw'
+import type { Lot } from './types'
+
+describe('landingAngle', () => {
+  const lots: Lot[] = ['Batter', 'Bowler', 'All-rounder']
+
+  it('always stops on the chosen lot, whatever the jitter and starting angle', () => {
+    for (const from of [0, 37, 2195, 4321]) {
+      for (const lot of lots) {
+        for (const jitter of [-0.5, -0.2, 0, 0.3, 0.4999]) {
+          const deg = landingAngle(from, lot, 5, jitter)
+          expect(lotAtAngle(deg)).toBe(lot)
+          expect(deg - from).toBeGreaterThanOrEqual(5 * 360)
+          expect(deg - from).toBeLessThan(6 * 360)
+        }
+      }
+    }
+  })
+
+  it('lands on each lot of an order in turn', () => {
+    const order: Lot[] = ['Bowler', 'All-rounder', 'Batter']
+    const first = landingAngle(0, order[0], 6)
+    const second = landingAngle(first, order[1], 5)
+    expect(lotAtAngle(first)).toBe('Bowler')
+    expect(lotAtAngle(second)).toBe('All-rounder')
+  })
+})
 
 const at = '2026-09-29T10:00:00Z'
 
