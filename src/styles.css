@@ -1849,7 +1849,9 @@ select:focus {
 
 img.avatar-proj {
   width: auto;
+  height: auto;
   max-width: 40vw;
+  max-height: min(52vh, 32vw);
   object-fit: contain;
 }
 
