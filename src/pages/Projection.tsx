@@ -170,8 +170,6 @@ function Stage({ data }: { data: AuctionData }) {
               <dd>{battingLabel(player.batting_style) ?? 'Not given'}</dd>
               <dt>Bowling</dt>
               <dd>{bowlingLabel(player.bowling_style) ?? "Doesn't bowl"}</dd>
-              <dt>Wicketkeeping</dt>
-              <dd>{player.is_wicketkeeper ? 'Yes' : 'No'}</dd>
             </dl>
             <div className={`proj-bid-team ${state.status === 'live' ? 'bidding' : ''}`}>
               {state.status === 'live' ? 'Bidding in progress' : state.status === 'unsold' ? 'Unsold' : '—'}
