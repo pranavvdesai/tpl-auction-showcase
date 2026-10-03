@@ -5,6 +5,7 @@ import { currentLot, lotLabel } from '../lib/draw'
 import { pts, roleLabel } from '../lib/format'
 import type { AuctionData, AuctionState, Lot, Player, TeamStanding } from '../lib/types'
 import { useAuction } from '../lib/useAuction'
+import { useAutoReload } from '../lib/useAutoReload'
 
 type View = 'auto' | 'squads'
 
@@ -27,6 +28,7 @@ export default function Projection() {
   const lotOrder = data?.state.lot_order
   const [preview, setPreview] = useState(previewOrder)
   const [previewRun, setPreviewRun] = useState(0)
+  useAutoReload(!reveals.playerDraw && !reveals.lotOrderDraw && !preview)
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {

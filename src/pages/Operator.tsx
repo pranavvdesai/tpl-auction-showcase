@@ -9,6 +9,7 @@ import { checkSale, nextBid, previousBid } from '../lib/rules'
 import { errorMessage, supabase } from '../lib/supabase'
 import type { AuctionData, Lot, Player, TeamStanding } from '../lib/types'
 import { useAuction } from '../lib/useAuction'
+import { useAutoReload } from '../lib/useAutoReload'
 import { Link } from '../router'
 
 type PoolFilter = 'open' | 'available' | 'unsold' | 'sold' | 'all'
@@ -34,6 +35,7 @@ function OperatorDesk({ email }: { email: string }) {
   const { data, error, live, reload } = useAuction('operator-desk')
   const [busy, setBusy] = useState(false)
   const [toast, setToast] = useState<Toast | null>(null)
+  useAutoReload(!busy)
 
   useEffect(() => {
     if (!toast) return
