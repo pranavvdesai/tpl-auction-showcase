@@ -10,12 +10,9 @@ type View = 'auto' | 'squads'
 
 const LOTS: Lot[] = ['Batter', 'Bowler', 'All-rounder']
 
-/** `?preview=lot-draw&order=Bowler,Batter,All-rounder` rehearses the arrow draw without touching the live auction. */
+/** `?preview=lot-draw` rehearses the arrow draw with a random order, without touching the live auction. */
 function previewOrder(): Lot[] | null {
-  const params = new URLSearchParams(window.location.search)
-  if (params.get('preview') !== 'lot-draw') return null
-  const asked = (params.get('order') ?? '').split(',').filter((l): l is Lot => LOTS.includes(l as Lot))
-  if (new Set(asked).size === LOTS.length) return asked
+  if (new URLSearchParams(window.location.search).get('preview') !== 'lot-draw') return null
   return [...LOTS].sort(() => Math.random() - 0.5)
 }
 
@@ -28,13 +25,16 @@ export default function Projection() {
   const { skip } = reveals
   const drawnPlayer = reveals.playerDraw ? data?.players.find((p) => p.id === data.state.current_player_id) : undefined
   const lotOrder = data?.state.lot_order
-  const [preview] = useState(previewOrder)
+  const [preview, setPreview] = useState(previewOrder)
   const [previewRun, setPreviewRun] = useState(0)
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'f' || e.key === 'F') toggleFullscreen()
-      if (e.key === 'r' || e.key === 'R') setPreviewRun((n) => n + 1)
+      if (e.key === 'r' || e.key === 'R') {
+        setPreview(previewOrder)
+        setPreviewRun((n) => n + 1)
+      }
       if (e.key === 't' || e.key === 'T') setView((v) => (v === 'squads' ? 'auto' : 'squads'))
       if (e.key === ' ') {
         e.preventDefault()

@@ -114,14 +114,29 @@ function AuctionControl({ data, busy, run }: PanelProps) {
   const nextLot = order.find((l) => players.some((p) => p.status === 'available' && p.id !== state.current_player_id && inLot(p.role, l)))
 
   if (state.phase === 'setup') {
-    return <LotOrderPicker busy={busy} run={run} blocked={notFresh} empty={players.length === 0} />
+    return (
+      <section className="panel control">
+        <div className="control-step">Step 1 of 2</div>
+        <h2>Draw the lot order</h2>
+        <p className="muted small">
+          The server puts Batsmen, Bowlers and All-rounders in a random order. Nobody can choose or redraw it. The
+          projection shows a spinning arrow landing on each lot in turn.
+        </p>
+        {notFresh && (
+          <p className="form-error small">Some players are already sold or unsold. Reset the demo auction first.</p>
+        )}
+        <button
+          className="btn primary block"
+          disabled={busy || notFresh || players.length === 0}
+          onClick={() => void run('Lot draw is playing on the projection', () => supabase.rpc('draw_lot_order'))}
+        >
+          Draw lot order
+        </button>
+      </section>
+    )
   }
 
   if (state.phase === 'ready') {
-    const changeOrder = () => {
-      if (!window.confirm('Change the lot order? The projection will play the arrow draw again when you set it.')) return
-      void run('Lot order cleared', () => supabase.rpc('clear_lot_order'))
-    }
     return (
       <section className="panel control">
         <div className="control-step">Step 2 of 2</div>
@@ -130,9 +145,6 @@ function AuctionControl({ data, busy, run }: PanelProps) {
         <p className="muted small">Players are drawn at random from each lot, one lot after another.</p>
         <button className="btn primary block" disabled={busy} onClick={() => void run('Auction started', () => supabase.rpc('begin_auction'))}>
           Begin auction
-        </button>
-        <button className="btn ghost small" disabled={busy} onClick={changeOrder}>
-          Change lot order
         </button>
       </section>
     )
@@ -189,64 +201,6 @@ function AuctionControl({ data, busy, run }: PanelProps) {
       <button className="btn ghost small" disabled={busy || lotLive} onClick={endNow}>
         End auction now
       </button>
-    </section>
-  )
-}
-
-const LOTS: Lot[] = ['Batter', 'Bowler', 'All-rounder']
-
-function LotOrderPicker({
-  busy,
-  run,
-  blocked,
-  empty,
-}: Pick<PanelProps, 'busy' | 'run'> & { blocked: boolean; empty: boolean }) {
-  const [picked, setPicked] = useState<Lot[]>([])
-  const order = picked.length === LOTS.length - 1 ? [...picked, ...LOTS.filter((l) => !picked.includes(l))] : picked
-  const complete = order.length === LOTS.length
-
-  const toggle = (lot: Lot) =>
-    setPicked((prev) => (prev.includes(lot) ? prev.slice(0, prev.indexOf(lot)) : [...prev, lot]))
-
-  return (
-    <section className="panel control">
-      <div className="control-step">Step 1 of 2</div>
-      <h2>Set the lot order</h2>
-      <p className="muted small">
-        Click the lots in the order they should run. The projection shows a spinning arrow that lands on this order.
-      </p>
-      <div className="lot-picker">
-        {LOTS.map((lot) => {
-          const n = order.indexOf(lot) + 1
-          return (
-            <button
-              key={lot}
-              type="button"
-              className={`lot-pick ${n ? 'picked' : ''}`}
-              disabled={busy || (n > 0 && !picked.includes(lot))}
-              onClick={() => toggle(lot)}
-            >
-              <span>{n || '·'}</span>
-              {lotLabel(lot)}
-            </button>
-          )
-        })}
-      </div>
-      {blocked && (
-        <p className="form-error small">Some players are already sold or unsold. Reset the demo auction first.</p>
-      )}
-      <button
-        className="btn primary block"
-        disabled={busy || blocked || empty || !complete}
-        onClick={() => void run('Lot draw is playing on the projection', () => supabase.rpc('set_lot_order', { p_order: order }))}
-      >
-        {complete ? 'Play lot draw on projection' : `Pick lot ${order.length + 1}`}
-      </button>
-      {picked.length > 0 && (
-        <button className="btn ghost small" disabled={busy} onClick={() => setPicked([])}>
-          Clear
-        </button>
-      )}
     </section>
   )
 }

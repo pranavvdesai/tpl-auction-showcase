@@ -461,49 +461,6 @@ select:focus {
   opacity: 0.5;
 }
 
-.lot-picker {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 8px;
-}
-
-.lot-pick {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  border: 1px solid var(--line);
-  background: transparent;
-  color: inherit;
-  border-radius: 10px;
-  padding: 10px;
-  font-weight: 700;
-  cursor: pointer;
-}
-
-.lot-pick span {
-  display: grid;
-  place-items: center;
-  width: 24px;
-  height: 24px;
-  border-radius: 50%;
-  background: var(--line);
-  font-size: 13px;
-}
-
-.lot-pick.picked {
-  border-color: var(--accent);
-  color: var(--accent);
-}
-
-.lot-pick.picked span {
-  background: var(--accent);
-  color: #0f172a;
-}
-
-.lot-pick:disabled {
-  cursor: default;
-}
-
 .chips {
   display: flex;
   gap: 6px;
