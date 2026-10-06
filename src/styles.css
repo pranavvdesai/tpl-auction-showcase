@@ -398,6 +398,17 @@ select:focus {
   margin: 0;
 }
 
+.end-auction {
+  display: grid;
+  gap: 6px;
+  padding-top: 12px;
+  border-top: 1px solid var(--line);
+}
+
+.end-auction p {
+  margin: 0;
+}
+
 .control-step {
   font-size: 12px;
   font-weight: 700;

@@ -173,9 +173,11 @@ function AuctionControl({ data, busy, run }: PanelProps) {
   else if (waiting.lots === 0 && waiting.unsold > 0) label = state.phase === 'unsold' ? 'Next unsold player' : 'Start unsold round'
   else if (waiting.lots === 0) label = 'Finish auction'
 
+  const shortTeams = teams.filter((t) => t.squad_count < settings.min_squad)
+  const squadsDone = shortTeams.length === 0
   const endNow = () => {
-    if (!window.confirm('End the auction now? No more players will be drawn.')) return
-    void run('Auction ended', () => supabase.rpc('end_auction'))
+    if (!window.confirm('Every team has a full squad. Complete the auction now? No more players will be drawn.')) return
+    void run('Auction complete', () => supabase.rpc('end_auction'))
   }
 
   return (
@@ -204,9 +206,18 @@ function AuctionControl({ data, busy, run }: PanelProps) {
         {label}
       </button>
       {lotLive && <p className="muted small">Mark the current player sold or unsold to continue.</p>}
-      <button className="btn ghost small" disabled={busy || lotLive} onClick={endNow}>
-        End auction now
-      </button>
+      <div className="end-auction">
+        <button className={`btn block ${squadsDone ? 'sold' : 'ghost'}`} disabled={busy || lotLive || !squadsDone} onClick={endNow}>
+          Complete auction
+        </button>
+        <p className="muted small">
+          {squadsDone
+            ? `Every team has at least ${settings.min_squad} players. You can finish now or keep drawing.`
+            : `Unlocks when every team has at least ${settings.min_squad} players. Still short: ${shortTeams
+                .map((t) => `${t.short_code} ${t.squad_count}/${settings.min_squad}`)
+                .join(', ')}.`}
+        </p>
+      </div>
     </section>
   )
 }
