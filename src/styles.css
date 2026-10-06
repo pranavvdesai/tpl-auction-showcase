@@ -409,6 +409,48 @@ select:focus {
   margin: 0;
 }
 
+.distribute {
+  display: grid;
+  gap: 10px;
+}
+
+.distribute-needs {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.distribute-needs li {
+  padding: 4px 10px;
+  border-radius: 999px;
+  border: 1px solid var(--team);
+  font-size: 13px;
+}
+
+.distribute-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 6px;
+  max-height: 320px;
+  overflow-y: auto;
+}
+
+.distribute-list li {
+  display: grid;
+  grid-template-columns: 1fr auto auto;
+  align-items: center;
+  gap: 8px;
+}
+
+.distribute-list select {
+  width: auto;
+}
+
 .control-step {
   font-size: 12px;
   font-weight: 700;

@@ -64,8 +64,6 @@ export interface AuctionState {
   /** 1-based index into lot_order */
   current_lot: number | null
   lot_order_drawn_at: string | null
-  /** Overall round of the unsold players: 2 for their first return, 3+ while a team is still short */
-  unsold_round: number | null
 }
 
 export interface AuctionData {

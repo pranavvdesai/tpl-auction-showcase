@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { DrawReveal, LotOrderReveal, useReveals } from '../components/DrawReveal'
 import { PlayerPhoto } from '../components/PlayerPhoto'
-import { currentLot, lotLabel, unsoldRoundLabel } from '../lib/draw'
+import { currentLot, lotLabel } from '../lib/draw'
 import { battingLabel, bowlingLabel, pts, roleLabel } from '../lib/format'
 import type { AuctionData, AuctionState, Lot, Player, TeamStanding } from '../lib/types'
 import { useAuction } from '../lib/useAuction'
@@ -115,7 +115,7 @@ function phaseLabel(state: AuctionState): string {
     case 'lots':
       return lot ? `Lot ${state.current_lot} of ${state.lot_order?.length ?? 3} · ${lotLabel(lot)}` : 'Auction live'
     case 'unsold':
-      return unsoldRoundLabel(state.unsold_round)
+      return 'Unsold round'
     case 'ended':
       return 'Auction complete'
   }
@@ -255,6 +255,10 @@ function IdleBoard({ data }: { data: AuctionData }) {
   const teamsById = new Map(data.teams.map((t) => [t.id, t]))
   const { state } = data
   const lot = currentLot(state)
+  const distributing =
+    (state.phase === 'lots' || state.phase === 'unsold') &&
+    !data.players.some((p) => p.status === 'available' || (p.status === 'unsold' && !p.reauctioned)) &&
+    data.teams.some((t) => t.squad_count < data.settings.min_squad)
   const heading =
     state.phase === 'setup'
       ? 'The auction is about to begin'
@@ -262,11 +266,13 @@ function IdleBoard({ data }: { data: AuctionData }) {
         ? 'Lot order'
         : state.phase === 'ended'
           ? 'Auction complete'
-          : state.phase === 'unsold'
-            ? `${unsoldRoundLabel(state.unsold_round)} · next player coming up`
-            : lot
-              ? `${lotLabel(lot)} lot: next player coming up`
-              : 'Next player coming up'
+          : distributing
+            ? `Unsold players go to teams below ${data.settings.min_squad}`
+            : state.phase === 'unsold'
+              ? 'Unsold round: next player coming up'
+              : lot
+                ? `${lotLabel(lot)} lot: next player coming up`
+                : 'Next player coming up'
 
   return (
     <div className="proj-idle">
@@ -278,8 +284,10 @@ function IdleBoard({ data }: { data: AuctionData }) {
         </>
       )}
       {state.phase === 'lots' && <LotOrder state={state} compact />}
-      {state.phase === 'unsold' && (
-        <p className="proj-idle-note">Unsold players return in the order they went unsold</p>
+      {distributing ? (
+        <p className="proj-idle-note">Each remaining player joins a team at the base price of {data.settings.min_base} points</p>
+      ) : (
+        state.phase === 'unsold' && <p className="proj-idle-note">Unsold players return in the order they went unsold</p>
       )}
       <div className="proj-stats">
         <Stat label="Players sold" value={String(sold.length)} />

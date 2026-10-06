@@ -49,10 +49,6 @@ export function remaining(players: PoolPlayer[], lot: Lot | null) {
   }
 }
 
-export function unsoldRoundLabel(round: number | null | undefined): string {
-  return `Round ${round ?? 2}: unsold players`
-}
-
 /** Centre of each lot's 120° sector on the projection wheel, clockwise from the top. */
 export const WHEEL_ANGLES: Record<Lot, number> = { Batter: 0, Bowler: 120, 'All-rounder': 240 }
 
