@@ -193,18 +193,6 @@ select:focus {
   font-size: 0.85rem;
 }
 
-.dummy-badge {
-  display: inline-block;
-  font-size: 0.72rem;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  color: #fde68a;
-  border: 1px dashed #a16207;
-  border-radius: 999px;
-  padding: 3px 10px;
-}
-
 .live-dot {
   display: inline-flex;
   align-items: center;
@@ -959,16 +947,6 @@ select:focus {
   font-size: 1.6vh;
   font-weight: 800;
   letter-spacing: 0.12em;
-}
-
-.proj-dummy {
-  font-size: 1.3vh;
-  color: #fde68a;
-  border: 1px dashed #a16207;
-  border-radius: 999px;
-  padding: 0.3vh 0.8vw;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
 }
 
 .proj-controls {

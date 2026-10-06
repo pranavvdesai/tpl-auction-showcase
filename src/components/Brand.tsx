@@ -9,11 +9,3 @@ export function Brand({ subtitle }: { subtitle: string }) {
     </div>
   )
 }
-
-export function DummyBadge() {
-  return (
-    <span className="dummy-badge" title="All players, teams and numbers are fictional prototype data.">
-      Dummy data · prototype
-    </span>
-  )
-}

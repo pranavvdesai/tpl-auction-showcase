@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState, type FormEvent } from 'react'
-import { Brand, DummyBadge } from '../components/Brand'
+import { Brand } from '../components/Brand'
 import { CategoryTag } from '../components/CategoryTag'
 import { OperatorGate } from '../components/OperatorGate'
 import { PlayerPhoto } from '../components/PlayerPhoto'
@@ -61,7 +61,6 @@ function OperatorDesk({ email }: { email: string }) {
       <header className="topbar">
         <Brand subtitle="Operator desk" />
         <div className="topbar-actions">
-          <DummyBadge />
           <span className={`live-dot ${live ? 'on' : ''}`}>{live ? 'Live sync' : 'Connecting…'}</span>
           <Link className="btn ghost" to="/import">
             Import players
@@ -125,7 +124,7 @@ function AuctionControl({ data, busy, run }: PanelProps) {
           projection shows a spinning arrow landing on each lot in turn.
         </p>
         {notFresh && (
-          <p className="form-error small">Some players are already sold or unsold. Reset the demo auction first.</p>
+          <p className="form-error small">Some players are already sold or unsold. Reset the auction first.</p>
         )}
         <button
           className="btn primary block"
@@ -157,7 +156,7 @@ function AuctionControl({ data, busy, run }: PanelProps) {
       <section className="panel control">
         <h2>Auction complete</h2>
         <p className="muted small">
-          {players.filter((p) => p.status === 'sold').length} players sold. Use “Reset demo auction” to run it again.
+          {players.filter((p) => p.status === 'sold').length} players sold. Final squads are on the projection (press T).
         </p>
       </section>
     )
@@ -501,7 +500,9 @@ function ResultsPanel({ data, busy, run }: PanelProps) {
   }
 
   const reset = () => {
-    const answer = window.prompt('This clears every sale for the demo. Type RESET to confirm.')
+    const answer = window.prompt(
+      'This clears every sale and unsold mark and puts the auction back before the lot draw. Players stay in the pool. Type RESET to confirm.',
+    )
     if (answer !== 'RESET') return
     void run('Auction reset', () => supabase.rpc('reset_auction'))
   }
@@ -511,7 +512,7 @@ function ResultsPanel({ data, busy, run }: PanelProps) {
       <div className="panel-head">
         <h2>Recent sales</h2>
         <button className="btn small danger-outline" disabled={busy} onClick={reset}>
-          Reset demo auction
+          Reset auction
         </button>
       </div>
       {recent.length === 0 ? (
@@ -520,7 +521,7 @@ function ResultsPanel({ data, busy, run }: PanelProps) {
         <table>
           <thead>
             <tr>
-              <th>Lot</th>
+              <th>No.</th>
               <th>Player</th>
               <th>Team</th>
               <th className="num">Price</th>

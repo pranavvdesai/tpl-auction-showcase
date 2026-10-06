@@ -1,5 +1,5 @@
 import { useEffect, useState, type FormEvent } from 'react'
-import { Brand, DummyBadge } from '../components/Brand'
+import { Brand } from '../components/Brand'
 import { loginEmail } from '../lib/operatorLogin'
 import { errorMessage, supabase } from '../lib/supabase'
 import { useOperatorSession } from '../lib/useOperatorSession'
@@ -51,7 +51,6 @@ export default function Login() {
         <div className="login-head">
           <Brand subtitle="Operator sign-in" />
         </div>
-        <DummyBadge />
         <label>
           Username
           <input

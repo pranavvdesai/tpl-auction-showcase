@@ -1,4 +1,4 @@
-import { Brand, DummyBadge } from '../components/Brand'
+import { Brand } from '../components/Brand'
 import { Link } from '../router'
 
 export default function Home() {
@@ -6,7 +6,6 @@ export default function Home() {
     <main className="home">
       <header className="topbar">
         <Brand subtitle="The Sports Committee · TAPMI" />
-        <DummyBadge />
       </header>
 
       <section className="home-hero">
@@ -22,8 +21,8 @@ export default function Home() {
           <span className="home-card-kicker">For the auction desk</span>
           <h2>Operator desk</h2>
           <p>
-            Put a player on the projector, let bidding happen in the room, then enter the winning team and final amount.
-            Requires operator sign-in.
+            Draw the lot order and each player at random, let bidding happen in the room, then enter the winning team and
+            final amount. Requires operator sign-in.
           </p>
           <span className="home-card-link">Open /operator →</span>
         </Link>

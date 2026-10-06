@@ -1,6 +1,6 @@
 import JSZip from 'jszip'
 import { useEffect, useMemo, useRef, useState, type ChangeEvent } from 'react'
-import { Brand, DummyBadge } from '../components/Brand'
+import { Brand } from '../components/Brand'
 import { OperatorGate } from '../components/OperatorGate'
 import { initials } from '../components/PlayerPhoto'
 import {
@@ -260,7 +260,6 @@ function Importer({ email }: { email: string }) {
       <header className="topbar">
         <Brand subtitle="Import players" />
         <div className="topbar-actions">
-          <DummyBadge />
           <Link className="btn ghost" to="/operator">
             ← Operator desk
           </Link>

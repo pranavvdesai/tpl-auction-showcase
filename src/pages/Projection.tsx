@@ -56,9 +56,7 @@ export default function Projection() {
           <strong>{data?.settings.season_name ?? 'TPL'} Player Auction</strong>
         </div>
         <div className="proj-status">
-          {data && <span className="proj-phase">{phaseLabel(data.state)}</span>}
-          <span className="proj-dummy">Dummy data preview</span>
-          <span className={`live-dot ${live ? 'on' : ''}`}>{live ? 'LIVE' : 'Connecting'}</span>
+          {data && <span className="proj-phase">{phaseLabel(data.state)}</span>}          <span className={`live-dot ${live ? 'on' : ''}`}>{live ? 'LIVE' : 'Connecting'}</span>
         </div>
       </header>
 
