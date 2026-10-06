@@ -1,14 +1,14 @@
 -- Dummy data for the TPL Auction prototype. All names and stats are fictional.
 
 insert into public.teams (name, short_code, color, captain, purse_total, sort_order) values
-  ('Pitch Placers', 'PP', '#16a34a', 'Harsha R.', 10000, 1),
-  ('Alpha Scorchers', 'AS', '#dc2626', 'Rohan M.', 10000, 2),
-  ('Leopard Hunters', 'LH', '#d97706', 'Kaustubh S.', 10000, 3),
-  ('Brand Storm', 'BS', '#7c3aed', 'Aditi K.', 10000, 4),
-  ('Manipal Mavericks', 'MM', '#0891b2', 'Varun P.', 10000, 5),
-  ('Coastal Chargers', 'CC', '#2563eb', 'Sneha N.', 10000, 6),
-  ('Udupi Titans', 'UT', '#db2777', 'Nikhil J.', 10000, 7),
-  ('Night Owls XI', 'NO', '#475569', 'Farhan A.', 10000, 8)
+  ('Pitch Placers', 'PP', '#16a34a', null, 1200, 1),
+  ('CC Bois', 'CCB', '#2563eb', null, 1200, 2),
+  ('Vault Warriors', 'VW', '#ca8a04', null, 1200, 3),
+  ('Swathi Old Monks', 'SOM', '#475569', null, 1200, 4),
+  ('Leopard Hunters', 'LH', '#ea580c', null, 1200, 5),
+  ('BrandStorm', 'BS', '#7c3aed', null, 1200, 6),
+  ('Raging Bulls', 'RB', '#dc2626', null, 1200, 7),
+  ('MegaPixel', 'MP', '#0891b2', null, 1200, 8)
 on conflict (name) do nothing;
 
 insert into public.players (lot_no, name, roll_no, batch, role, category, base_price, batting_style, bowling_style, highlight) values
