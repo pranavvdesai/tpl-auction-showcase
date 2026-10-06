@@ -258,7 +258,7 @@ function PlayerPool({ data }: { data: AuctionData }) {
 
       <input
         className="search"
-        placeholder="Search name, roll no, role or lot #"
+        placeholder="Search name, roll no, role or player no."
         value={query}
         onChange={(e) => setQuery(e.target.value)}
       />

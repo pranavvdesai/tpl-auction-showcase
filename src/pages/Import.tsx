@@ -3,6 +3,7 @@ import { useEffect, useMemo, useRef, useState, type ChangeEvent } from 'react'
 import { Brand } from '../components/Brand'
 import { OperatorGate } from '../components/OperatorGate'
 import { initials } from '../components/PlayerPhoto'
+import { PoolTable } from '../components/PoolTable'
 import {
   FIELD_LABELS,
   REQUIRED_FIELDS,
@@ -525,6 +526,8 @@ function Importer({ email }: { email: string }) {
             </div>
           </section>
         )}
+
+        {data && <PoolTable data={data} />}
       </div>
     </main>
   )

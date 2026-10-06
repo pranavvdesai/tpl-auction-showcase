@@ -2038,6 +2038,19 @@ img.avatar-proj {
   overflow: auto;
 }
 
+.pool-table-tools {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  margin: 10px 0;
+}
+
+.pool-table-tools .search {
+  flex: 1 1 260px;
+  max-width: 420px;
+}
+
 .preview table {
   width: 100%;
   border-collapse: collapse;
