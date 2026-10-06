@@ -3,7 +3,7 @@ import { Brand } from '../components/Brand'
 import { CategoryTag } from '../components/CategoryTag'
 import { OperatorGate } from '../components/OperatorGate'
 import { PlayerPhoto } from '../components/PlayerPhoto'
-import { currentLot, inLot, lotLabel, remaining } from '../lib/draw'
+import { currentLot, inLot, lotLabel, remaining, unsoldRoundLabel } from '../lib/draw'
 import { pts, roleLabel } from '../lib/format'
 import { checkSale, nextBid, previousBid } from '../lib/rules'
 import { errorMessage, supabase } from '../lib/supabase'
@@ -167,16 +167,27 @@ function AuctionControl({ data, busy, run }: PanelProps) {
     )
   }
 
+  const shortTeams = teams.filter((t) => t.squad_count < settings.min_squad)
+  const squadsDone = shortTeams.length === 0
+  const shortList = shortTeams.map((t) => `${t.short_code} ${t.squad_count}/${settings.min_squad}`).join(', ')
+  const round = state.unsold_round ?? 2
+  const unsoldLeft = players.filter((p) => p.status === 'unsold' && p.id !== state.current_player_id).length
+  const anotherRound =
+    unsoldLeft > 0 && teams.some((t) => t.squad_count < settings.min_squad && t.max_bid >= settings.min_base)
+  const canEndShort = !squadsDone && state.phase === 'unsold' && round >= 3
+
   let label = 'Draw next player'
   if (!teamsCanBuy) label = 'Finish auction (no team can buy more)'
   else if (waiting.lots > 0 && lot && nextLot && nextLot !== lot) label = `Start lot: ${lotLabel(nextLot)}`
-  else if (waiting.lots === 0 && waiting.unsold > 0) label = state.phase === 'unsold' ? 'Next unsold player' : 'Start unsold round'
+  else if (waiting.lots === 0 && waiting.unsold > 0) label = state.phase === 'unsold' ? 'Next unsold player' : 'Start unsold round (round 2)'
+  else if (waiting.lots === 0 && anotherRound) label = `Start round ${state.phase === 'unsold' ? round + 1 : 2} of unsold players`
   else if (waiting.lots === 0) label = 'Finish auction'
 
-  const shortTeams = teams.filter((t) => t.squad_count < settings.min_squad)
-  const squadsDone = shortTeams.length === 0
   const endNow = () => {
-    if (!window.confirm('Every team has a full squad. Complete the auction now? No more players will be drawn.')) return
+    const question = squadsDone
+      ? 'Every team has a full squad. Complete the auction now? No more players will be drawn.'
+      : `These teams are still below ${settings.min_squad}: ${shortList}. End the auction anyway? Their squads stay short.`
+    if (!window.confirm(question)) return
     void run('Auction complete', () => supabase.rpc('end_auction'))
   }
 
@@ -192,10 +203,17 @@ function AuctionControl({ data, busy, run }: PanelProps) {
         </>
       ) : (
         <>
-          <h2>Unsold round</h2>
+          <h2>{unsoldRoundLabel(round)}</h2>
           <p className="muted small">
-            Unsold players come back in the order they went unsold. {waiting.unsold} still to go.
+            Unsold players come back in the order they went unsold. {waiting.unsold} still to go in this round.
+            {round >= 3 && ` This round is running because ${shortList || 'some teams'} were below ${settings.min_squad}.`}
           </p>
+          {waiting.unsold === 0 && !lotLive && anotherRound && (
+            <p className="small form-error">
+              Still below {settings.min_squad}: {shortList}. The {unsoldLeft} unsold players come back again in round{' '}
+              {round + 1}.
+            </p>
+          )}
         </>
       )}
       <button
@@ -207,15 +225,19 @@ function AuctionControl({ data, busy, run }: PanelProps) {
       </button>
       {lotLive && <p className="muted small">Mark the current player sold or unsold to continue.</p>}
       <div className="end-auction">
-        <button className={`btn block ${squadsDone ? 'sold' : 'ghost'}`} disabled={busy || lotLive || !squadsDone} onClick={endNow}>
-          Complete auction
+        <button
+          className={`btn block ${squadsDone ? 'sold' : canEndShort ? 'danger-outline' : 'ghost'}`}
+          disabled={busy || lotLive || !(squadsDone || canEndShort)}
+          onClick={endNow}
+        >
+          {squadsDone || !canEndShort ? 'Complete auction' : 'End auction with short squads'}
         </button>
         <p className="muted small">
           {squadsDone
             ? `Every team has at least ${settings.min_squad} players. You can finish now or keep drawing.`
-            : `Unlocks when every team has at least ${settings.min_squad} players. Still short: ${shortTeams
-                .map((t) => `${t.short_code} ${t.squad_count}/${settings.min_squad}`)
-                .join(', ')}.`}
+            : canEndShort
+              ? `Still short: ${shortList}. Keep going, or end here if those teams will not buy.`
+              : `Unlocks when every team has at least ${settings.min_squad} players. Still short: ${shortList}.`}
         </p>
       </div>
     </section>

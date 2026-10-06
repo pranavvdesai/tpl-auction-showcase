@@ -12,7 +12,7 @@ async function fetchAuction(): Promise<AuctionData> {
     supabase.from('players').select('*').order('lot_no'),
     supabase
       .from('auction_state')
-      .select('status, current_player_id, current_bid, current_team_id, updated_at, phase, lot_order, current_lot, lot_order_drawn_at')
+      .select('status, current_player_id, current_bid, current_team_id, updated_at, phase, lot_order, current_lot, lot_order_drawn_at, unsold_round')
       .single(),
   ])
   for (const result of [settings, teams, players, state]) {

@@ -60,8 +60,8 @@ export default function Home() {
             team already accounts for that reserve.
           </li>
           <li>
-            Players with no bid go to the Final Unsold Player List. After the regular auction, teams below 13 pick from
-            it at 20 points each; if two teams want the same player, bidding restarts from 20.
+            Players with no bid go to the Final Unsold Player List and come back in round 2. If any team is still
+            below 13 after that, the unsold players come back again (round 3, 4 …) until every team reaches 13.
           </li>
         </ul>
       </section>
