@@ -94,8 +94,8 @@ await check('anonymous users cannot call auction or import functions', async () 
 
 await check('settings follow the rulebook', async () => {
   assert(settings.min_squad === 13 && settings.max_squad === 16, 'squad should be 13-16')
-  assert(settings.min_base === 30 && settings.retention_cost === 200, 'base 30 and retention 200 expected')
-  assert(players.every((p) => p.base_price === 30), 'every player should start at 30')
+  assert(settings.min_base === 20 && settings.retention_cost === 200, 'base 20 and retention 200 expected')
+  assert(players.every((p) => p.base_price === 20), 'every player should start at 20')
   assert(teams.every((t) => t.purse_total === 1200), 'every purse should be 1200')
 })
 

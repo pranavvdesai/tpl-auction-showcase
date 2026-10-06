@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { checkSale, computeStanding, floorToBid, isValidBid, nextBid, previousBid } from './rules'
 import type { Settings } from './types'
 
-const settings: Settings = { season_name: 'TPL 2026', min_squad: 13, max_squad: 16, min_base: 30, retention_cost: 200 }
+const settings: Settings = { season_name: 'TPL 2026', min_squad: 13, max_squad: 16, min_base: 20, retention_cost: 200 }
 
 describe('bidding ladder', () => {
   it('accepts steps of 10 up to 100 and steps of 20 above, with no 50s', () => {
@@ -29,27 +29,27 @@ describe('bidding ladder', () => {
 })
 
 describe('team standing', () => {
-  it('keeps the 30-point base price for every player still needed to reach 13', () => {
+  it('keeps the 20-point base price for every player still needed to reach 13', () => {
     const s = computeStanding(1200, [], settings)
-    expect(s).toEqual({ spent: 0, remaining: 1200, squad_count: 0, max_bid: 1200 - 12 * 30, needed: 13 })
+    expect(s).toEqual({ spent: 0, remaining: 1200, squad_count: 0, max_bid: 1200 - 12 * 20, needed: 13 })
   })
 
   it('counts a retained owner as 200 points and one squad player', () => {
     const s = computeStanding(1200, [], settings, true)
     expect(s).toMatchObject({ spent: 200, remaining: 1000, squad_count: 1, needed: 12 })
-    // 1000 - 11 * 30 = 670, rounded down to the ladder
-    expect(s.max_bid).toBe(660)
+    // 1000 - 11 * 20 = 780, already on the ladder
+    expect(s.max_bid).toBe(780)
   })
 
-  it('a team with 10 players and 90 points left can bid up to 30', () => {
+  it('a team with 10 players and 90 points left can bid up to 50', () => {
     const s = computeStanding(1200, [...Array(9).fill(100), 210], settings)
     expect(s.remaining).toBe(90)
     expect(s.needed).toBe(3)
-    expect(s.max_bid).toBe(30)
+    expect(s.max_bid).toBe(50)
   })
 
   it('blocks buying when the squad has 16 players', () => {
-    const s = computeStanding(1200, Array(15).fill(30), settings, true)
+    const s = computeStanding(1200, Array(15).fill(20), settings, true)
     expect(s.squad_count).toBe(16)
     expect(s.max_bid).toBe(0)
   })
@@ -57,15 +57,15 @@ describe('team standing', () => {
 
 describe('checkSale', () => {
   const standing = computeStanding(1200, [300, 200], settings)
-  const base = { teamName: 'Pitch Placers', standing, basePrice: 30, settings }
+  const base = { teamName: 'Pitch Placers', standing, basePrice: 20, settings }
 
   it('accepts valid final amounts, including the base price', () => {
     expect(checkSale({ ...base, amount: 240 })).toEqual({ ok: true })
-    expect(checkSale({ ...base, amount: 30 })).toEqual({ ok: true })
+    expect(checkSale({ ...base, amount: 20 })).toEqual({ ok: true })
   })
 
-  it('rejects amounts below the 30-point base price', () => {
-    expect(checkSale({ ...base, amount: 20 }).ok).toBe(false)
+  it('rejects amounts below the 20-point base price', () => {
+    expect(checkSale({ ...base, amount: 10 }).ok).toBe(false)
   })
 
   it('rejects amounts off the ladder and suggests the nearest valid bids', () => {
@@ -75,15 +75,15 @@ describe('checkSale', () => {
   })
 
   it('rejects amounts above the purse reserve limit', () => {
-    // 700 left, 10 more players needed after this one at 30 each => 400
-    expect(standing.max_bid).toBe(400)
-    expect(checkSale({ ...base, amount: 420 }).ok).toBe(false)
-    expect(checkSale({ ...base, amount: 400 }).ok).toBe(true)
+    // 700 left, 10 more players needed after this one at 20 each => 500
+    expect(standing.max_bid).toBe(500)
+    expect(checkSale({ ...base, amount: 520 }).ok).toBe(false)
+    expect(checkSale({ ...base, amount: 500 }).ok).toBe(true)
   })
 
   it('rejects a team with a full squad', () => {
-    const full = computeStanding(1200, Array(16).fill(30), settings)
-    expect(checkSale({ ...base, standing: full, amount: 30 }).ok).toBe(false)
+    const full = computeStanding(1200, Array(16).fill(20), settings)
+    expect(checkSale({ ...base, standing: full, amount: 20 }).ok).toBe(false)
   })
 
   it('rejects non-integer amounts', () => {
