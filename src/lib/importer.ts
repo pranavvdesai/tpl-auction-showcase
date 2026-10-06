@@ -1,5 +1,6 @@
 // Turns a Microsoft Forms registration export into auction players.
-// Contact columns (phone, email) are never read beyond the header.
+// The phone number is kept apart from the public player record (see playerPayload) and is
+// saved to the operator-only contacts table; email is never read.
 import type { Cell } from './xlsx'
 import type { Role } from './types'
 
@@ -8,6 +9,7 @@ export type FieldKey =
   | 'roll_no'
   | 'batch'
   | 'gender'
+  | 'phone'
   | 'role'
   | 'batting'
   | 'bowling_hand'
@@ -23,6 +25,7 @@ export const FIELD_LABELS: Record<FieldKey, string> = {
   roll_no: 'Roll number',
   batch: 'Class (MBA / IPM year)',
   gender: 'Gender (women are left out)',
+  phone: 'Contact number (operators only)',
   role: 'Primary role',
   batting: 'Batting hand',
   bowling_hand: 'Bowling hand',
@@ -43,6 +46,7 @@ const DETECTORS: Array<[FieldKey, (h: string) => boolean]> = [
   ['roll_no', (h) => /ROLL|REG(ISTRATION)? ?NO/.test(h)],
   ['batch', (h) => /\bYEAR\b|\bCLASS\b|BATCH|PROGRAM|COURSE/.test(h)],
   ['gender', (h) => /GENDER|\bSEX\b/.test(h)],
+  ['phone', (h) => /CONTACT|PHONE|MOBILE|WHATSAPP/.test(h)],
   ['wicketkeeping', (h) => /WICKET ?KEEP|KEEPING|\bWK\b/.test(h)],
   ['bowling_hand', (h) => /BOWL/.test(h) && /HAND|ARM/.test(h)],
   ['bowling_type', (h) => /BOWL/.test(h) && /TYPE|STYLE|KIND/.test(h)],
@@ -93,6 +97,8 @@ export interface ParsedPlayer {
   bowling_style: string | null
   is_wicketkeeper: boolean
   photo_file: string | null
+  /** Private: saved to player_contacts, never to the public players table. */
+  phone: string | null
   female: boolean
   submittedAt: number
   issues: Issue[]
@@ -180,6 +186,31 @@ export function classFromRoll(rollNo: string, now = new Date()): string | null {
   return `${ipm ? 'IPM' : 'MBA'} ${year}`
 }
 
+export function normalizePhone(value: Cell): string | null {
+  const raw = typeof value === 'number' ? String(Math.round(value)) : clean(value)
+  const phone = raw.replace(/[^\d+]/g, '')
+  return phone || null
+}
+
+/** The public player record sent to import_players; deliberately excludes the phone number. */
+export function playerPayload(p: ParsedPlayer, basePrice: number, photoUrl: string | null) {
+  return {
+    name: p.name,
+    roll_no: p.roll_no,
+    batch: p.batch,
+    role: p.role,
+    base_price: basePrice,
+    batting_style: p.batting_style,
+    bowling_style: p.bowling_style,
+    is_wicketkeeper: p.is_wicketkeeper,
+    photo_url: photoUrl,
+  }
+}
+
+export function contactItems(players: ParsedPlayer[]): Array<{ roll_no: string; phone: string }> {
+  return players.filter((p) => p.roll_no && p.phone).map((p) => ({ roll_no: p.roll_no, phone: p.phone as string }))
+}
+
 const IMAGE_EXT = /\.(jpe?g|png|webp|gif|bmp)$/i
 const ROLL_PATTERN = /^\d{2}[A-Z]{1,3}\d{1,4}$/
 
@@ -212,6 +243,7 @@ export function normalizeRow(cells: Cell[], map: ColumnMap, rowNumber: number): 
     bowling_style: mapBowling(get('bowling_hand'), get('bowling_type')),
     is_wicketkeeper: role === 'Wicketkeeper' || wk === 'YES' || wk === 'Y',
     photo_file,
+    phone: normalizePhone(get('phone')),
     female: /^(F|FEMALE|WOMAN|GIRL)$/.test(clean(get('gender')).toUpperCase()),
     submittedAt: typeof submittedRaw === 'number' ? submittedRaw : Date.parse(String(submittedRaw ?? '')) || rowNumber,
     issues,

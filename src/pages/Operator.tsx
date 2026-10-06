@@ -7,6 +7,7 @@ import { currentLot, inLot, lotLabel, remaining } from '../lib/draw'
 import { pts, roleLabel } from '../lib/format'
 import { checkSale, nextBid, previousBid } from '../lib/rules'
 import { errorMessage, supabase } from '../lib/supabase'
+import { downloadTeamSheets } from '../lib/teamSheets'
 import type { AuctionData, Lot, Player, TeamStanding } from '../lib/types'
 import { useAuction } from '../lib/useAuction'
 import { useAutoReload } from '../lib/useAutoReload'
@@ -158,6 +159,10 @@ function AuctionControl({ data, busy, run }: PanelProps) {
         <p className="muted small">
           {players.filter((p) => p.status === 'sold').length} players sold. Final squads are on the projection (press T).
         </p>
+        <TeamSheetsButton data={data} className="btn primary block" />
+        <p className="muted small">
+          One sheet per team with every player’s class, section and contact number, plus a summary and the unsold list.
+        </p>
       </section>
     )
   }
@@ -203,6 +208,35 @@ function AuctionControl({ data, busy, run }: PanelProps) {
         End auction now
       </button>
     </section>
+  )
+}
+
+function TeamSheetsButton({ data, className }: { data: AuctionData; className: string }) {
+  const [working, setWorking] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  const download = async () => {
+    setWorking(true)
+    setError(null)
+    try {
+      const { data: rows, error: contactError } = await supabase.from('player_contacts').select('roll_no, phone')
+      if (contactError) throw contactError
+      const contacts = new Map((rows ?? []).filter((r) => r.phone).map((r) => [r.roll_no as string, r.phone as string]))
+      await downloadTeamSheets(data, contacts)
+    } catch (e) {
+      setError(errorMessage(e))
+    } finally {
+      setWorking(false)
+    }
+  }
+
+  return (
+    <>
+      <button className={className} disabled={working} onClick={() => void download()}>
+        {working ? 'Preparing team sheets…' : 'Download team sheets (Excel)'}
+      </button>
+      {error && <p className="form-error small">{error}</p>}
+    </>
   )
 }
 
@@ -511,9 +545,12 @@ function ResultsPanel({ data, busy, run }: PanelProps) {
     <section className="panel results">
       <div className="panel-head">
         <h2>Recent sales</h2>
-        <button className="btn small danger-outline" disabled={busy} onClick={reset}>
-          Reset auction
-        </button>
+        <div className="topbar-actions">
+          <TeamSheetsButton data={data} className="btn small ghost" />
+          <button className="btn small danger-outline" disabled={busy} onClick={reset}>
+            Reset auction
+          </button>
+        </div>
       </div>
       {recent.length === 0 ? (
         <p className="muted small">No players sold yet.</p>

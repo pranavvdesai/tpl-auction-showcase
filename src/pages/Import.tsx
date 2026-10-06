@@ -7,9 +7,11 @@ import { PoolTable } from '../components/PoolTable'
 import {
   FIELD_LABELS,
   REQUIRED_FIELDS,
+  contactItems,
   isImageFile,
   matchPhotos,
   parseRegistrationRows,
+  playerPayload,
   type ColumnMap,
   type FieldKey,
   type ParsedPlayer,
@@ -209,21 +211,18 @@ function Importer({ email }: { email: string }) {
 
       if (sheet) {
         setImporting('Saving players…')
-        const payload = importable.map((p) => ({
-          name: p.name,
-          roll_no: p.roll_no,
-          batch: p.batch,
-          role: p.role,
-          base_price: base,
-          batting_style: p.batting_style,
-          bowling_style: p.bowling_style,
-          is_wicketkeeper: p.is_wicketkeeper,
-          photo_url: urls.get(p.roll_no) ?? null,
-        }))
+        const payload = importable.map((p) => playerPayload(p, base, urls.get(p.roll_no) ?? null))
         const { data: count, error: rpcError } = await supabase.rpc('import_players', { p_players: payload, p_replace: replace })
         if (rpcError) throw rpcError
+        const contacts = contactItems(importable)
+        if (contacts.length) {
+          setImporting('Saving contact numbers…')
+          const { error: contactError } = await supabase.rpc('save_contacts', { p_items: contacts })
+          if (contactError) throw contactError
+        }
         setResult(
-          `${count} players ${replace ? 'now make up the pool' : 'added or updated'}, ${urls.size} with photos.` +
+          `${count} players ${replace ? 'now make up the pool' : 'added or updated'}, ${urls.size} with photos, ` +
+            `${contacts.length} contact numbers saved.` +
             (skipped ? ` ${skipped} rows skipped because of errors.` : ''),
         )
       } else {
@@ -234,6 +233,27 @@ function Importer({ email }: { email: string }) {
         setResult(`${count} player photos updated.`)
       }
       await reload()
+    } catch (err) {
+      setError(errorMessage(err))
+    } finally {
+      setImporting(null)
+    }
+  }
+
+  const saveContactsOnly = async () => {
+    if (!sheet) return
+    const contacts = contactItems(sheet.players)
+    if (contacts.length === 0) {
+      setError('No contact numbers found in this sheet. Check the “Contact number” column mapping below.')
+      return
+    }
+    setError(null)
+    setResult(null)
+    setImporting('Saving contact numbers…')
+    try {
+      const { error: contactError } = await supabase.rpc('save_contacts', { p_items: contacts })
+      if (contactError) throw contactError
+      setResult(`${contacts.length} contact numbers saved. The player pool was not changed.`)
     } catch (err) {
       setError(errorMessage(err))
     } finally {
@@ -376,6 +396,11 @@ function Importer({ email }: { email: string }) {
                     ? `Upload ${readyPhotos.length} photos to existing players`
                     : 'Import')}
             </button>
+            {sheet && (
+              <button className="btn ghost block" disabled={!!importing} onClick={() => void saveContactsOnly()}>
+                Only save contact numbers ({contactItems(sheet.players).length}) — pool unchanged
+              </button>
+            )}
             {result && (
               <p className="import-result">
                 ✓ {result}{' '}

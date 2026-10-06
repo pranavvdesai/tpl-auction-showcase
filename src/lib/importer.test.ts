@@ -2,12 +2,15 @@ import JSZip from 'jszip'
 import { describe, expect, it } from 'vitest'
 import {
   classFromRoll,
+  contactItems,
   detectColumns,
   mapBowling,
   mapRole,
   matchPhotos,
   normalizeClass,
+  normalizePhone,
   parseRegistrationRows,
+  playerPayload,
   photoFileFromLink,
   titleCase,
 } from './importer'
@@ -106,6 +109,7 @@ describe('column detection', () => {
       photo: 14,
       batch: 15,
       gender: 16,
+      phone: 8,
     })
   })
 })
@@ -177,10 +181,17 @@ describe('parseRegistrationRows', () => {
     expect(sheet.players).toHaveLength(3)
   })
 
-  it('never carries contact details into player records', () => {
-    const json = JSON.stringify(sheet.players)
-    expect(json).not.toContain('9000000001')
-    expect(json).not.toContain('a@x.edu')
+  it('keeps phone numbers for the private contacts list only', () => {
+    expect(contactItems(sheet.players)).toContainEqual({ roll_no: '25F101', phone: '9000000001' })
+    const publicRecords = JSON.stringify(sheet.players.map((p) => playerPayload(p, 20, null)))
+    expect(publicRecords).not.toContain('9000000001')
+    expect(JSON.stringify(sheet.players)).not.toContain('a@x.edu')
+  })
+
+  it('normalises phone numbers typed or stored as numbers', () => {
+    expect(normalizePhone(9876543210)).toBe('9876543210')
+    expect(normalizePhone(' +91 98765-43210 ')).toBe('+919876543210')
+    expect(normalizePhone(null)).toBeNull()
   })
 })
 
