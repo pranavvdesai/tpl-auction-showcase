@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { DrawReveal, LotOrderReveal, useReveals } from '../components/DrawReveal'
+import { FitText } from '../components/FitText'
 import { PlayerPhoto } from '../components/PlayerPhoto'
 import { currentLot, lotLabel } from '../lib/draw'
 import { battingLabel, bowlingLabel, pts, roleLabel } from '../lib/format'
@@ -158,7 +159,7 @@ function Stage({ data }: { data: AuctionData }) {
               {pts(state.current_bid)}
               <span>pts</span>
             </div>
-            <div className="proj-bid-team">{buyer.name}</div>
+            <FitText className="proj-bid-team" text={buyer.name} />
           </>
         ) : (
           <>
@@ -366,7 +367,7 @@ function SquadsBoard({ data }: { data: AuctionData }) {
 function TeamCard({ team, maxSquad, leading }: { team: TeamStanding; maxSquad: number; leading: boolean }) {
   return (
     <div className={`proj-team ${leading ? 'leading' : ''}`} style={{ ['--team' as string]: team.color }}>
-      <div className="proj-team-name">{team.name}</div>
+      <FitText className="proj-team-name" text={team.name} />
       <div className="proj-team-purse">{pts(team.remaining)}</div>
       <div className="proj-team-meta">
         {team.squad_count}/{maxSquad} players · max {pts(team.max_bid)}

@@ -1292,6 +1292,11 @@ select:focus {
   margin-top: 1vh;
 }
 
+.fit-text {
+  white-space: nowrap;
+  overflow: hidden;
+}
+
 .proj-bid-team.bidding {
   color: var(--accent-2);
   animation: breathe 1.6s ease-in-out infinite;
@@ -1749,7 +1754,7 @@ select:focus {
 
 .proj-top-buys li {
   display: grid;
-  grid-template-columns: 1fr 1fr auto;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto;
   gap: 2vw;
   font-size: 2.8vh;
   text-align: left;
@@ -1933,6 +1938,13 @@ img.avatar-proj {
 
 .proj-top-buys li {
   align-items: center;
+}
+
+.proj-top-buys li > span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .proj-squad .avatar-xs {
@@ -2275,13 +2287,6 @@ img.avatar-proj {
     font-size: 0.85rem;
     padding: 8px 10px;
     border-radius: 10px;
-  }
-
-  .proj-top-buys li > span {
-    min-width: 0;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
   }
 
   .avatar-top {
