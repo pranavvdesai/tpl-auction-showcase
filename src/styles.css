@@ -1941,6 +1941,428 @@ img.avatar-proj {
   font-size: 0.9vh;
 }
 
+/* Projection on phones: one scrolling column with fixed, readable sizes.
+   The 16:9 screen layout above stays untouched for laptops and projectors. */
+@media (max-width: 760px), (max-height: 500px) and (orientation: landscape) {
+  .projection {
+    height: auto;
+    min-height: 100dvh;
+    display: flex;
+    flex-direction: column;
+    overflow: visible;
+    user-select: auto;
+  }
+
+  .proj-stage {
+    flex: 1;
+  }
+
+  .proj-top {
+    flex-wrap: wrap;
+    gap: 6px 10px;
+    padding: 10px 12px;
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    background: rgba(7, 12, 24, 0.94);
+  }
+
+  .proj-top img {
+    width: 34px;
+    height: 34px;
+  }
+
+  .proj-title {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .proj-title span {
+    font-size: 0.6rem;
+    letter-spacing: 0.18em;
+  }
+
+  .proj-title strong {
+    font-size: 1rem;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .proj-status {
+    margin-left: 0;
+    width: 100%;
+    justify-content: space-between;
+    gap: 8px;
+  }
+
+  .proj-phase {
+    font-size: 0.68rem;
+    padding: 3px 10px;
+  }
+
+  .proj-status .live-dot {
+    font-size: 0.72rem;
+  }
+
+  .proj-controls {
+    position: static;
+    opacity: 1;
+    justify-content: flex-end;
+    padding: 8px 12px 0;
+  }
+
+  .proj-controls button {
+    font-size: 0.8rem;
+    padding: 6px 12px;
+  }
+
+  .proj-message {
+    font-size: 1rem;
+    padding: 40px 16px;
+  }
+
+  .proj-stage {
+    padding: 12px;
+  }
+
+  /* Live player: photo and name first, then price box, then top buys */
+  .proj-lot {
+    height: auto;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 14px;
+  }
+
+  .proj-center {
+    order: -1;
+    height: auto;
+    gap: 6px;
+    padding: 4px 0;
+  }
+
+  .proj-lotno {
+    font-size: 0.75rem;
+  }
+
+  .avatar-proj {
+    width: min(64vw, 260px);
+    height: min(64vw, 260px);
+    border-radius: 16px;
+    border-width: 4px;
+    font-size: 4rem;
+    box-shadow: 0 0 28px color-mix(in srgb, var(--team) 45%, transparent);
+  }
+
+  img.avatar-proj {
+    width: auto;
+    height: auto;
+    max-width: 82vw;
+    max-height: 42vh;
+  }
+
+  .proj-center h1 {
+    font-size: 1.7rem;
+    margin-top: 4px;
+  }
+
+  .proj-role {
+    font-size: 1.1rem;
+  }
+
+  .proj-mba {
+    margin-left: 8px;
+    padding: 1px 10px;
+    font-size: 0.85rem;
+    border-width: 1.5px;
+  }
+
+  .proj-base {
+    font-size: 0.95rem;
+  }
+
+  .proj-base strong {
+    font-size: 1.2rem;
+    margin: 0 3px;
+  }
+
+  .proj-stamp {
+    border-radius: 16px;
+  }
+
+  .stamp-word {
+    font-size: 3.4rem;
+    border-width: 6px;
+    border-radius: 16px;
+    padding: 0 18px;
+  }
+
+  .stamp-detail {
+    font-size: 1rem;
+    margin-top: 18px;
+    padding: 0 12px;
+  }
+
+  .proj-bid {
+    padding: 14px 16px;
+    border-radius: 14px;
+    border-width: 2px;
+    box-shadow: 0 0 24px color-mix(in srgb, var(--team) 35%, transparent);
+  }
+
+  .proj-bid-label {
+    font-size: 0.75rem;
+  }
+
+  .proj-profile {
+    margin: 10px 0 4px;
+    grid-template-columns: auto minmax(0, 1fr);
+    gap: 4px 12px;
+    align-items: baseline;
+  }
+
+  .proj-profile dt,
+  .proj-profile dt:first-child {
+    font-size: 0.7rem;
+    margin-top: 0;
+  }
+
+  .proj-profile dd {
+    font-size: 1rem;
+  }
+
+  .proj-bid-amount {
+    font-size: 2.8rem;
+  }
+
+  .proj-bid-amount span {
+    font-size: 1rem;
+    margin-left: 4px;
+  }
+
+  .proj-bid-team {
+    font-size: 1.3rem;
+    margin-top: 4px;
+  }
+
+  .proj-topbuys {
+    padding: 12px;
+    gap: 8px;
+    border-radius: 14px;
+  }
+
+  .proj-topbuys h2 {
+    font-size: 0.8rem;
+  }
+
+  .proj-topbuys-empty {
+    font-size: 0.9rem;
+  }
+
+  .proj-topbuys ol {
+    gap: 6px;
+  }
+
+  .proj-topbuys li {
+    gap: 10px;
+    padding: 6px 10px;
+    border-radius: 10px;
+    border-left-width: 4px;
+  }
+
+  .proj-topbuys .rank {
+    font-size: 1rem;
+    width: 1.2em;
+  }
+
+  .avatar-topbuy {
+    width: 36px;
+    height: 36px;
+    font-size: 0.75rem;
+  }
+
+  .proj-topbuys .who strong {
+    font-size: 0.9rem;
+  }
+
+  .proj-topbuys .who span {
+    font-size: 0.75rem;
+  }
+
+  .proj-topbuys .price {
+    font-size: 1.1rem;
+  }
+
+  /* Between players */
+  .proj-idle {
+    height: auto;
+    gap: 18px;
+    padding: 12px 0;
+  }
+
+  .proj-idle h1 {
+    font-size: 1.6rem;
+    line-height: 1.2;
+  }
+
+  .proj-idle-note {
+    font-size: 0.9rem;
+    margin: 0;
+  }
+
+  .lot-order-row,
+  .lot-order-row.compact {
+    width: 100%;
+    gap: 8px;
+    margin: 0;
+  }
+
+  .lot-order-card,
+  .lot-order-row.compact .lot-order-card {
+    flex: 1;
+    min-width: 0;
+    padding: 10px 6px;
+    border-radius: 10px;
+    gap: 4px;
+  }
+
+  .lot-order-card span {
+    font-size: 0.62rem;
+  }
+
+  .lot-order-card strong,
+  .lot-order-row.compact .lot-order-card strong {
+    font-size: 0.82rem;
+    letter-spacing: 0.02em;
+  }
+
+  .proj-stats {
+    width: 100%;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+  }
+
+  .proj-stat {
+    min-width: 0;
+    padding: 12px 8px;
+    border-radius: 12px;
+  }
+
+  .proj-stat strong {
+    font-size: 1.8rem;
+  }
+
+  .proj-stat span {
+    font-size: 0.68rem;
+  }
+
+  .proj-top-buys {
+    width: 100%;
+  }
+
+  .proj-top-buys h2 {
+    font-size: 0.8rem;
+    margin-bottom: 8px;
+  }
+
+  .proj-top-buys ol {
+    gap: 6px;
+  }
+
+  .proj-top-buys li {
+    grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr) auto;
+    gap: 8px;
+    font-size: 0.85rem;
+    padding: 8px 10px;
+    border-radius: 10px;
+  }
+
+  .proj-top-buys li > span {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .avatar-top {
+    width: 28px;
+    height: 28px;
+    font-size: 0.65rem;
+  }
+
+  /* Squads view */
+  .proj-squads {
+    height: auto;
+    grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+    grid-auto-rows: auto;
+    gap: 10px;
+  }
+
+  .proj-squad {
+    padding: 10px 12px;
+    border-top-width: 5px;
+    border-radius: 10px;
+  }
+
+  .proj-squad h3 {
+    font-size: 1rem;
+    margin-bottom: 6px;
+  }
+
+  .proj-squad ul {
+    font-size: 0.85rem;
+    gap: 4px;
+  }
+
+  .proj-squad li {
+    gap: 8px;
+  }
+
+  .proj-squad .avatar-xs {
+    width: 20px;
+    height: 20px;
+    font-size: 0.55rem;
+  }
+
+  /* Team purses */
+  .proj-teams {
+    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+    gap: 8px;
+    padding: 12px;
+  }
+
+  .proj-team {
+    padding: 8px;
+    border-top-width: 4px;
+    border-radius: 8px;
+  }
+
+  .proj-team.leading {
+    transform: none;
+    box-shadow: 0 0 16px color-mix(in srgb, var(--team) 70%, transparent);
+  }
+
+  .proj-team-name {
+    font-size: 0.8rem;
+  }
+
+  .proj-team-purse {
+    font-size: 1.25rem;
+  }
+
+  .proj-team-meta {
+    font-size: 0.68rem;
+  }
+
+  /* Draw animations scale to the screen width */
+  .draw-reveal svg,
+  .lot-reveal svg {
+    width: 100%;
+    height: auto;
+    max-height: 70vh;
+  }
+}
+
 /* Import ------------------------------------------------------------------- */
 
 .import-body {
