@@ -74,28 +74,42 @@ export function buildTeamSheets(data: AuctionData, contacts: Map<string, string>
     return { name: t.name, rows, widths: WIDTHS }
   })
 
-  const leftOver = players.filter((p) => p.status !== 'sold').sort((a, b) => a.name.localeCompare(b.name))
-  const unsold: OutSheet = {
+  const leftOver = players.filter((p) => p.status !== 'sold')
+  return [summary, ...teamSheets, unsoldSheet(leftOver, contacts, 'Players not bought')]
+}
+
+function unsoldSheet(list: Player[], contacts: Map<string, string>, title: string): OutSheet {
+  const sorted = [...list].sort((a, b) => a.name.localeCompare(b.name))
+  return {
     name: 'Unsold',
     widths: WIDTHS,
     rows: [
-      [{ value: 'Players not bought', style: 'title' }],
-      [{ value: `${leftOver.length} players`, style: 'subtitle' }],
+      [{ value: title, style: 'title' }],
+      [{ value: `${sorted.length} players · ${new Date().toLocaleString('en-IN')}`, style: 'subtitle' }],
       [],
       header([...HEADER.slice(0, 9), 'Base price']),
-      ...leftOver.map((p, i) => playerRow(i + 1, p, contacts.get(p.roll_no), p.base_price)),
+      ...sorted.map((p, i) => playerRow(i + 1, p, contacts.get(p.roll_no), p.base_price)),
     ],
   }
-
-  return [summary, ...teamSheets, unsold]
 }
 
-export async function downloadTeamSheets(data: AuctionData, contacts: Map<string, string>) {
-  const blob = await writeXlsx(buildTeamSheets(data, contacts))
+async function save(sheets: OutSheet[], fileName: string) {
+  const blob = await writeXlsx(sheets)
   const url = URL.createObjectURL(blob)
   const a = document.createElement('a')
   a.href = url
-  a.download = `${data.settings.season_name.replace(/\s+/g, '-')}-team-sheets.xlsx`
+  a.download = fileName
   a.click()
   URL.revokeObjectURL(url)
+}
+
+const filePrefix = (data: AuctionData) => data.settings.season_name.replace(/\s+/g, '-')
+
+export async function downloadTeamSheets(data: AuctionData, contacts: Map<string, string>) {
+  await save(buildTeamSheets(data, contacts), `${filePrefix(data)}-team-sheets.xlsx`)
+}
+
+export async function downloadUnsoldList(data: AuctionData, contacts: Map<string, string>) {
+  const unsold = data.players.filter((p) => p.status === 'unsold')
+  await save([unsoldSheet(unsold, contacts, `${data.settings.season_name} unsold players`)], `${filePrefix(data)}-unsold-players.xlsx`)
 }

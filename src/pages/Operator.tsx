@@ -7,7 +7,7 @@ import { currentLot, inLot, lotLabel, remaining } from '../lib/draw'
 import { pts, roleLabel } from '../lib/format'
 import { checkSale, nextBid, previousBid } from '../lib/rules'
 import { errorMessage, supabase } from '../lib/supabase'
-import { downloadTeamSheets } from '../lib/teamSheets'
+import { downloadTeamSheets, downloadUnsoldList } from '../lib/teamSheets'
 import type { AuctionData, Lot, Player, TeamStanding } from '../lib/types'
 import { useAuction } from '../lib/useAuction'
 import { useAutoReload } from '../lib/useAutoReload'
@@ -86,6 +86,7 @@ function OperatorDesk({ email }: { email: string }) {
           <PlayerPool data={data} />
           <div className="operator-center">
             <AuctionControl data={data} busy={busy} run={run} />
+            <UnsoldPanel data={data} busy={busy} run={run} />
             <LivePanel data={data} busy={busy} run={run} />
             <ResultsPanel data={data} busy={busy} run={run} />
           </div>
@@ -296,18 +297,101 @@ function DistributeUnsold({
   )
 }
 
+function UnsoldPanel({ data, busy, run }: PanelProps) {
+  const { state, players, teams, settings } = data
+  const [choice, setChoice] = useState<Record<string, string>>({})
+  const unsold = players.filter((p) => p.status === 'unsold').sort((a, b) => a.name.localeCompare(b.name))
+  if (!['lots', 'unsold', 'ended'].includes(state.phase) || unsold.length === 0) return null
+
+  const open = teams.filter((t) => t.squad_count < settings.max_squad)
+  const lotLive = state.status === 'live'
+
+  const assign = (p: Player) => {
+    const team = open.find((t) => t.id === choice[p.id])
+    if (!team) return
+    if (!window.confirm(`Put ${p.name} in ${team.name} for free (0 points)?`)) return
+    void run(`${p.name} joins ${team.name}`, () =>
+      supabase.rpc('assign_unsold_player', { p_player_id: p.id, p_team_id: team.id }),
+    )
+  }
+
+  return (
+    <section className="panel">
+      <div className="panel-head">
+        <h2>Unsold players ({unsold.length})</h2>
+      </div>
+      <ExcelButton
+        className="btn block"
+        label="Download unsold players (Excel)"
+        download={(contacts) => downloadUnsoldList(data, contacts)}
+      />
+      <p className="muted small">
+        Assign an unsold player to any team below {settings.max_squad} players. They join for free (0 points); Revert in
+        Results puts them back on this list.
+        {lotLive && ' Close the player on the floor first.'}
+      </p>
+      <ul className="distribute-list">
+        {unsold.map((p) => (
+          <li key={p.id}>
+            <span className="name-with-avatar">
+              <PlayerPhoto name={p.name} src={p.photo_url} className="avatar-xs" />
+              <span>
+                {p.name}
+                <span className="muted small">
+                  {' '}
+                  · {roleLabel(p.role)}
+                  {!p.reauctioned && state.phase !== 'ended' ? ' · round 2 pending' : ''}
+                </span>
+              </span>
+            </span>
+            <select
+              value={choice[p.id] ?? ''}
+              onChange={(e) => setChoice({ ...choice, [p.id]: e.target.value })}
+              aria-label={`Team for ${p.name}`}
+            >
+              <option value="">Choose team</option>
+              {open.map((t) => (
+                <option key={t.id} value={t.id}>
+                  {t.short_code} ({t.squad_count}/{settings.max_squad})
+                </option>
+              ))}
+            </select>
+            <button className="btn small sold" disabled={busy || lotLive || !choice[p.id]} onClick={() => assign(p)}>
+              Assign
+            </button>
+          </li>
+        ))}
+      </ul>
+    </section>
+  )
+}
+
 function TeamSheetsButton({ data, className }: { data: AuctionData; className: string }) {
+  return (
+    <ExcelButton className={className} label="Download team sheets (Excel)" download={(contacts) => downloadTeamSheets(data, contacts)} />
+  )
+}
+
+function ExcelButton({
+  className,
+  label,
+  download,
+}: {
+  className: string
+  label: string
+  download: (contacts: Map<string, string>) => Promise<void>
+}) {
   const [working, setWorking] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  const download = async () => {
+  const start = async () => {
     setWorking(true)
     setError(null)
     try {
       const { data: rows, error: contactError } = await supabase.from('player_contacts').select('roll_no, phone')
       if (contactError) throw contactError
       const contacts = new Map((rows ?? []).filter((r) => r.phone).map((r) => [r.roll_no as string, r.phone as string]))
-      await downloadTeamSheets(data, contacts)
+      await download(contacts)
     } catch (e) {
       setError(errorMessage(e))
     } finally {
@@ -317,8 +401,8 @@ function TeamSheetsButton({ data, className }: { data: AuctionData; className: s
 
   return (
     <>
-      <button className={className} disabled={working} onClick={() => void download()}>
-        {working ? 'Preparing team sheets…' : 'Download team sheets (Excel)'}
+      <button className={className} disabled={working} onClick={() => void start()}>
+        {working ? 'Preparing the Excel file…' : label}
       </button>
       {error && <p className="form-error small">{error}</p>}
     </>
