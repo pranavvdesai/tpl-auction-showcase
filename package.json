@@ -10,6 +10,8 @@
     "dev": "vite",
     "build": "tsc --noEmit && vite build",
     "preview": "vite preview",
+    "dev:demo": "vite --mode demo",
+    "build:demo": "tsc --noEmit && vite build --mode demo",
     "test": "vitest run",
     "test:integration": "node scripts/integration-test.mjs",
     "test:smoke": "node scripts/smoke-test.mjs",

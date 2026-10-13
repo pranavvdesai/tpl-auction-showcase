@@ -11,3 +11,4 @@ supabase/.branches
 trial-import/
 *.xlsx
 *.zip
+dist-demo
